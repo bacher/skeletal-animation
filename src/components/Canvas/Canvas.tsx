@@ -17,7 +17,17 @@ export function Canvas() {
       throw new Error();
     }
 
-    initGL(gl);
+    (async function () {
+      const res = await fetch('/man_cube.json');
+
+      if (!res.ok) {
+        throw new Error('man_cube.json cant be loaded');
+      }
+
+      const model = await res.json();
+
+      initGL(gl, model);
+    })();
   }, []);
 
   return (

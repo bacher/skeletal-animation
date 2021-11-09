@@ -1,41 +1,14 @@
 import path from 'path';
 import fs from 'fs/promises';
 
-const FILE = './example/man.obj';
+import type { ModelData, Point, Point2D, AnyFace } from './types';
+
+const FILE = './example/man_s2.obj';
 
 const addNormals = false;
 const addUVs = false;
 
 const POINT_PARTS_COUNT = 1 + (addUVs ? 1 + (addNormals ? 1 : 0) : 0);
-
-type Point = [number, number, number];
-
-type Point2D = [number, number];
-
-type Face = {
-  vertices: number[];
-};
-
-type FaceUV = {
-  vertices: number[];
-  uvs: number[];
-};
-
-type FaceUVNormal = {
-  vertices: number[];
-  uvs: number[];
-  normals: number[];
-};
-
-type AnyFace = Face | FaceUV | FaceUVNormal;
-
-type ModelData = {
-  name: string;
-  vertices: Point[];
-  uvs: Point2D[];
-  normals: Point[];
-  faces: (Face | FaceUV | FaceUVNormal)[];
-};
 
 function parsePoint(line: string, command: string): Point {
   const point = line.split(/\s/).map(parseFloat);
@@ -251,10 +224,14 @@ async function run() {
       delete data.normals;
     }
 
-    await fs.writeFile(
-      path.join(dir, `${fileName}_${model.name.toLowerCase()}.json`),
-      JSON.stringify(data)
+    const outFile = path.join(
+      dir,
+      `${fileName}_${model.name.toLowerCase()}.json`
     );
+
+    await fs.writeFile(outFile, JSON.stringify(data));
+
+    console.info(`File saved: ${outFile}`);
   }
 }
 
