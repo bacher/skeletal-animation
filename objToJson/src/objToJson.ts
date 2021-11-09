@@ -59,7 +59,7 @@ function parsePoint2D(line: string, command: string): Point2D {
   return point as Point2D;
 }
 
-function parseFace(line: string, model: ModelData): AnyFace {
+function parseFace(line: string, model: ModelData): AnyFace[] {
   const points = line.split(/\s+/);
 
   if (points.length < 3 || points.length > 4) {
@@ -67,13 +67,9 @@ function parseFace(line: string, model: ModelData): AnyFace {
     throw new Error('Invalid polygon size');
   }
 
-  const face: FaceUVNormal = {
-    vertices: [],
-    uvs: [],
-    normals: [],
-  };
+  const processedPoints = points.map((point) => {
+    const pointData: any = {};
 
-  for (const point of points) {
     const parts = point.split('/');
 
     if (parts.length < POINT_PARTS_COUNT) {
@@ -90,7 +86,7 @@ function parseFace(line: string, model: ModelData): AnyFace {
     if (model.vertices.length <= v) {
       throw new Error(`Vertex ${v} is not found`);
     }
-    face.vertices.push(v);
+    pointData.vertex = v;
 
     if (addUVs) {
       let vt = parseInt(parts[1], 10);
@@ -103,7 +99,7 @@ function parseFace(line: string, model: ModelData): AnyFace {
       if (model.uvs.length <= vt) {
         throw new Error(`UV ${vt} is not found`);
       }
-      face.uvs.push(vt);
+      pointData.uv = vt;
     }
 
     if (addNormals) {
@@ -116,24 +112,39 @@ function parseFace(line: string, model: ModelData): AnyFace {
       if (model.normals.length <= vn) {
         throw new Error(`Normal ${vn} is not found`);
       }
-      face.normals.push(vn);
+      pointData.normal = vn;
     }
+
+    return pointData;
+  });
+
+  const triangles = [
+    [processedPoints[0], processedPoints[1], processedPoints[2]],
+  ];
+
+  if (processedPoints.length === 4) {
+    triangles.push([
+      processedPoints[2],
+      processedPoints[3],
+      processedPoints[0],
+    ]);
   }
 
-  if (addUVs && addNormals) {
-    return face;
-  }
-
-  if (addUVs) {
-    return {
-      vertices: face.vertices,
-      uvs: face.uvs,
+  return triangles.map((points) => {
+    const data: any = {
+      vertices: points.map((data) => data.vertex),
     };
-  }
 
-  return {
-    vertices: face.vertices,
-  };
+    if (addUVs) {
+      data.uvs = points.map((data) => data.uv);
+
+      if (addNormals) {
+        data.normals = points.map((data) => data.normal);
+      }
+    }
+
+    return data;
+  });
 }
 
 async function run() {
@@ -176,10 +187,10 @@ async function run() {
         models.push(currentModel);
         continue;
       case 'mtllib': // Materials Lib
-        // console.log('mtllib:', rest);
+        // currently ignore
         continue;
       case 'usemtl': // Use Materials Lib
-        // console.log('usemtl:', rest);
+        // currently ignore
         continue;
       case 's': // Does not used
         continue;
@@ -198,13 +209,13 @@ async function run() {
           currentModel.uvs.push(parsePoint2D(params, 'vt'));
         }
         break;
-      case 'vn': // Normales
+      case 'vn': // Normals
         if (addNormals) {
           currentModel.normals.push(parsePoint(params, 'vn'));
         }
         break;
       case 'f': // Face
-        currentModel.faces.push(parseFace(params, currentModel));
+        currentModel.faces.push(...parseFace(params, currentModel));
         break;
     }
   }
@@ -212,9 +223,19 @@ async function run() {
   console.info(`Models loaded: ${models.length}`);
 
   for (const model of models) {
-    console.info(
-      `Model "${model.name}" loaded (vertexes: ${model.vertices.length}, normals: ${model.normals.length}, uvs: ${model.uvs.length}, faces: ${model.faces.length})`
-    );
+    const info = [`vertexes: ${model.vertices.length}`];
+
+    if (addUVs) {
+      info.push(`uvs: ${model.uvs.length}`);
+
+      if (addNormals) {
+        info.push(`normals: ${model.normals.length}`);
+      }
+    }
+
+    info.push(`faces: ${model.faces.length}`);
+
+    console.info(`Model "${model.name}" loaded (${info.join(', ')})`);
 
     const dir = path.dirname(FILE);
     const extName = path.extname(FILE);
@@ -231,7 +252,7 @@ async function run() {
     }
 
     await fs.writeFile(
-      path.join(dir, `${fileName}.json`),
+      path.join(dir, `${fileName}_${model.name.toLowerCase()}.json`),
       JSON.stringify(data)
     );
   }

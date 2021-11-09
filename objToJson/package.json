@@ -1,14 +1,15 @@
 {
-  "name": "obj2json",
+  "name": "obj-to-json",
   "version": "0.1.0",
   "description": "",
-  "main": "src/obj2json.ts",
+  "main": "src/objToJson.ts",
   "directories": {
     "example": "example"
   },
   "scripts": {
-    "test": "ts-node-dev src/obj2json.ts",
-    "dev": "ts-node-dev --respawn src/obj2json.ts"
+    "start": "ts-node src/objToJson.ts",
+    "test": "ts-node-dev src/objToJson.ts",
+    "dev": "ts-node-dev --respawn src/objToJson.ts"
   },
   "keywords": [
     "3d",

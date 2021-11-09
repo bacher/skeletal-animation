@@ -23,4 +23,4 @@ yarn-debug.log*
 yarn-error.log*
 
 # processed example models
-obj2json/example/*.json
+objToJson/example/*.json
