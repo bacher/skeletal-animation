@@ -1,5 +1,5 @@
-export function normalize3v(v3: number[]): number[] {
-  const modifier = Math.sqrt(v3[0] ** 2 + v3[1] ** 2 + v3[2] ** 2);
+export function normalize3v([x1, x2, x3]: number[]): number[] {
+  const modifier = Math.sqrt(x1 ** 2 + x2 ** 2 + x3 ** 2);
 
-  return v3.map((v) => v / modifier);
+  return [x1 / modifier, x2 * modifier, x3 * modifier];
 }

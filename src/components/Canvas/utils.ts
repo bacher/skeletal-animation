@@ -6,7 +6,7 @@ import { vertexShaderSource, fragmentShaderSource } from '../../shaders/basic';
 import { normalize3v } from '../../utils/vec';
 
 const light = {
-  x: 0,
+  x: -0.4,
   y: 1,
   z: 0,
 };
@@ -16,8 +16,8 @@ const modelControl = {
   y: 0,
   z: 0,
   rX: 0.1,
-  rY: 0.6,
-  rZ: 0.1,
+  rY: 0,
+  rZ: 0,
   scale: 3,
 };
 
@@ -262,6 +262,7 @@ function draw(
     modelControl.y,
     modelControl.z
   );
+
   let modelRotationMatrix = m4.identify();
   modelRotationMatrix = m4.xRotate(
     modelRotationMatrix,
@@ -269,11 +270,11 @@ function draw(
   );
   modelRotationMatrix = m4.yRotate(
     modelRotationMatrix,
-    Math.PI * modelControl.rY
+    Math.PI * modelControl.rY + (scene.rotate ? -time * 0.002 : 1)
   );
-  modelRotationMatrix = m4.yRotate(
+  modelRotationMatrix = m4.zRotate(
     modelRotationMatrix,
-    Math.PI * modelControl.rZ * (scene.rotate ? -time * 0.002 : 1)
+    Math.PI * modelControl.rZ
   );
 
   modelMatrix = m4.multiply(modelMatrix, modelRotationMatrix);
@@ -289,11 +290,14 @@ function draw(
   gl.uniformMatrix4fv(locations.projection, false, projectionMatrix);
   gl.uniformMatrix4fv(locations.model, false, modelMatrix);
 
-  const light3v = normalize3v([light.x, light.y, light.z]);
-  // console.log('light:', light3v);
-  // const light = normalize3v([0, -0.5, 0]);
+  const lightVector = m4.multiplyVector(modelRotationMatrix, [
+    light.x,
+    light.y,
+    light.z,
+    0,
+  ]);
 
-  gl.uniform3fv(locations.light, light3v);
+  gl.uniform3fv(locations.light, normalize3v(lightVector));
 
   // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 

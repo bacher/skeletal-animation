@@ -10,22 +10,22 @@ export const m4 = {
   },
 
   xRotation(angleInRadians: number): M4 {
-    var c = Math.cos(angleInRadians);
-    var s = Math.sin(angleInRadians);
+    const c = Math.cos(angleInRadians);
+    const s = Math.sin(angleInRadians);
 
     return [1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, 0, 0, 0, 1];
   },
 
   yRotation(angleInRadians: number): M4 {
-    var c = Math.cos(angleInRadians);
-    var s = Math.sin(angleInRadians);
+    const c = Math.cos(angleInRadians);
+    const s = Math.sin(angleInRadians);
 
     return [c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, 0, 0, 0, 1];
   },
 
   zRotation(angleInRadians: number): M4 {
-    var c = Math.cos(angleInRadians);
-    var s = Math.sin(angleInRadians);
+    const c = Math.cos(angleInRadians);
+    const s = Math.sin(angleInRadians);
 
     return [c, s, 0, 0, -s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
   },
@@ -85,6 +85,17 @@ export const m4 = {
       b30 * a01 + b31 * a11 + b32 * a21 + b33 * a31,
       b30 * a02 + b31 * a12 + b32 * a22 + b33 * a32,
       b30 * a03 + b31 * a13 + b32 * a23 + b33 * a33,
+    ];
+  },
+
+  multiplyVector(m: M4, vec4: number[]): number[] {
+    const [x1, x2, x3, x4] = vec4;
+
+    return [
+      m[0] * x1 + m[1] * x2 + m[2] * x3 + m[3] * x4,
+      m[4] * x1 + m[5] * x2 + m[6] * x3 + m[7] * x4,
+      m[8] * x1 + m[9] * x2 + m[10] * x3 + m[11] * x4,
+      m[12] * x1 + m[13] * x2 + m[14] * x3 + m[15] * x4,
     ];
   },
 
