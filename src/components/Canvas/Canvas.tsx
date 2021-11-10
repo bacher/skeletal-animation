@@ -18,10 +18,10 @@ export function Canvas() {
     }
 
     (async function () {
-      const res = await fetch('/man_cube.json');
+      const res = await fetch('/model.json');
 
       if (!res.ok) {
-        throw new Error('man_cube.json cant be loaded');
+        throw new Error('model.json cant be loaded');
       }
 
       const model = await res.json();
