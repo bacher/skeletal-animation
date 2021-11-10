@@ -110,20 +110,20 @@ export const m4 = {
 
   projection(width: number, height: number, depth: number): M4 {
     return [
-      2 / width,
+      1 / width,
       0,
       0,
       0,
       0,
-      -2 / height,
+      1 / height,
       0,
       0,
       0,
       0,
-      2 / depth,
+      -1 / depth,
       0,
-      -1,
-      1,
+      0,
+      0,
       0,
       1,
     ];

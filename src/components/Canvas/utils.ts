@@ -1,7 +1,54 @@
+import * as dat from 'dat.gui';
+
 import type { ModelData } from '../../../objToJson/src';
 import { m4 } from '../../utils/m4';
 import { vertexShaderSource, fragmentShaderSource } from '../../shaders/basic';
 import { normalize3v } from '../../utils/vec';
+
+const light = {
+  x: 0,
+  y: 1,
+  z: 0,
+};
+
+const modelControl = {
+  x: 0,
+  y: 0,
+  z: 0,
+  rX: 0.1,
+  rY: 0.6,
+  rZ: 0.1,
+  scale: 3,
+};
+
+const scene = {
+  rotate: true,
+};
+
+export function init() {
+  const gui = new dat.GUI({ name: 'My GUI' });
+
+  const lightDir = gui.addFolder('Light');
+  lightDir.open();
+
+  lightDir.add(light, 'x', -1, 1, 0.1);
+  lightDir.add(light, 'y', -1, 1, 0.1);
+  lightDir.add(light, 'z', -1, 1, 0.1);
+
+  const modelDir = gui.addFolder('Model');
+  modelDir.open();
+  modelDir.add(modelControl, 'x', -400, 400);
+  modelDir.add(modelControl, 'y', -400, 400);
+  modelDir.add(modelControl, 'z', -400, 400);
+  modelDir.add(modelControl, 'rX', -1, 1, 0.1);
+  modelDir.add(modelControl, 'rY', -1, 1, 0.1);
+  modelDir.add(modelControl, 'rZ', -1, 1, 0.1);
+  modelDir.add(modelControl, 'scale', 0, 10);
+
+  const sceneDir = gui.addFolder('Scene');
+  sceneDir.open();
+  sceneDir.add(scene, 'rotate');
+}
 
 function createShader(
   gl: WebGL2RenderingContext,
@@ -121,7 +168,8 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelData) {
 
   const positionAttributeLocation = gl.getAttribLocation(program, 'a_position');
   const normalAttributeLocation = gl.getAttribLocation(program, 'a_normal');
-  const matrixLocation = gl.getUniformLocation(program, 'u_matrix');
+  const projectionLocation = gl.getUniformLocation(program, 'u_projection');
+  const modelLocation = gl.getUniformLocation(program, 'u_model');
   const lightLocation = gl.getUniformLocation(program, 'u_lightDirection');
 
   // createGeometryBuffer(gl, model);
@@ -160,7 +208,7 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelData) {
   );
   gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-  // gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
   gl.enable(gl.DEPTH_TEST);
   gl.enable(gl.CULL_FACE);
@@ -171,7 +219,17 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelData) {
   gl.bindVertexArray(vao);
 
   function tick(time: number) {
-    draw(gl, matrixLocation, lightLocation, model, size, time);
+    draw(
+      gl,
+      {
+        projection: projectionLocation,
+        model: modelLocation,
+        light: lightLocation,
+      },
+      model,
+      size,
+      time
+    );
     requestAnimationFrame(tick);
   }
 
@@ -182,31 +240,60 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelData) {
 
 function draw(
   gl: WebGL2RenderingContext,
-  matrixLocation: WebGLUniformLocation | null,
-  lightLocation: WebGLUniformLocation | null,
+  locations: {
+    projection: WebGLUniformLocation | null;
+    model: WebGLUniformLocation | null;
+    light: WebGLUniformLocation | null;
+  },
   model: ModelData,
   size: number,
   time: number
 ) {
-  // let matrix = m4.identify();
-
-  let matrix = m4.projection(
+  const projectionMatrix = m4.projection(
     gl.canvas.clientWidth,
     gl.canvas.clientHeight,
     400
   );
-  matrix = m4.translate(matrix, 300, 200, 0);
-  matrix = m4.xRotate(matrix, Math.PI * 1.1);
-  matrix = m4.yRotate(matrix, Math.PI * 0.35 * (time * 0.005));
-  // matrix = m4.zRotate(matrix, Math.PI * 0.1);
-  matrix = m4.scale(matrix, 40, 40, 40);
+
+  let modelMatrix = m4.identify();
+  modelMatrix = m4.translate(
+    modelMatrix,
+    modelControl.x,
+    modelControl.y,
+    modelControl.z
+  );
+  let modelRotationMatrix = m4.identify();
+  modelRotationMatrix = m4.xRotate(
+    modelRotationMatrix,
+    Math.PI * modelControl.rX
+  );
+  modelRotationMatrix = m4.yRotate(
+    modelRotationMatrix,
+    Math.PI * modelControl.rY
+  );
+  modelRotationMatrix = m4.yRotate(
+    modelRotationMatrix,
+    Math.PI * modelControl.rZ * (scene.rotate ? -time * 0.002 : 1)
+  );
+
+  modelMatrix = m4.multiply(modelMatrix, modelRotationMatrix);
+
+  modelMatrix = m4.scale(
+    modelMatrix,
+    modelControl.scale * 40,
+    modelControl.scale * 40,
+    modelControl.scale * 40
+  );
 
   // Set the matrix.
-  gl.uniformMatrix4fv(matrixLocation, false, matrix);
+  gl.uniformMatrix4fv(locations.projection, false, projectionMatrix);
+  gl.uniformMatrix4fv(locations.model, false, modelMatrix);
 
-  const light = normalize3v([0, 0.5, 0.75]);
+  const light3v = normalize3v([light.x, light.y, light.z]);
+  // console.log('light:', light3v);
+  // const light = normalize3v([0, -0.5, 0]);
 
-  gl.uniform3fv(lightLocation, light);
+  gl.uniform3fv(locations.light, light3v);
 
   // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 

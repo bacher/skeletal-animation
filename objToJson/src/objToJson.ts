@@ -196,7 +196,7 @@ async function processFile(filepath: string) {
         }
         break;
       case 'f': // Face
-        currentModel.faces.push(...parseFace(params, currentModel));
+        currentModel.faces.push(...(parseFace(params, currentModel) as any));
         break;
     }
   }

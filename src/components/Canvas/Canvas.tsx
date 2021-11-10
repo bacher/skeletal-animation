@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { initGL } from './utils';
+import { init, initGL } from './utils';
 
 export function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -26,13 +26,14 @@ export function Canvas() {
 
       const model = await res.json();
 
+      init();
       initGL(gl, model);
     })();
   }, []);
 
   return (
     <div>
-      <canvas ref={canvasRef} width={600} height={400} />
+      <canvas ref={canvasRef} width={500} height={500} />
     </div>
   );
 }
