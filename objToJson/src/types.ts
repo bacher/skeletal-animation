@@ -24,5 +24,6 @@ export type ModelData = {
   vertices: Point[];
   uvs: Point2D[];
   normals: Point[];
-  faces: (Face | FaceUV | FaceUVNormal)[];
+  // faces: (Face | FaceUV | FaceUVNormal)[];
+  faces: FaceUVNormal[];
 };

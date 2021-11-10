@@ -1,5 +1,7 @@
 import type { ModelData } from '../../../objToJson/src';
 import { m4 } from '../../utils/m4';
+import { vertexShaderSource, fragmentShaderSource } from '../../shaders/basic';
+import { normalize3v } from '../../utils/vec';
 
 function createShader(
   gl: WebGL2RenderingContext,
@@ -48,46 +50,9 @@ function createProgram(
   return program;
 }
 
-export function initGL(gl: WebGL2RenderingContext, model: ModelData) {
-  const vertexShaderSource = `#version 300 es
-uniform mat4 u_matrix;
-in vec4 a_position;
-
-void main() {
-  // gl_Position = vec4(a_position[0]*0.1, a_position[1]*0.1, a_position[2]*0.1, a_position[3]);
-  // gl_Position = a_position * vec4(0.3, 0.3, 0, 1);
-  gl_Position = u_matrix * a_position;
-}
-`;
-
-  const fragmentShaderSource = `#version 300 es
-precision highp float;
-
-out vec4 outColor;
-
-void main() {
-  outColor = vec4(1, 0, 0, 1);
-}
-`;
-
-  const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-  const fragmentShader = createShader(
-    gl,
-    gl.FRAGMENT_SHADER,
-    fragmentShaderSource
-  );
-
-  const program = createProgram(gl, vertexShader, fragmentShader);
-
-  const positionAttributeLocation = gl.getAttribLocation(program, 'a_position');
-  const matrixLocation = gl.getUniformLocation(program, 'u_matrix');
-
+function createGeometryBuffer(gl: WebGL2RenderingContext, model: ModelData) {
   const positionBuffer = gl.createBuffer();
-
   gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-
-  // const positions = [0, 0, 0, 0.5, 0.7, 0];
-
   const positions = new Float32Array(model.faces.length * 3 * 3);
 
   let posOffset = 0;
@@ -102,41 +67,111 @@ void main() {
   }
 
   gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+}
+
+function createGeometryWithNormalsBuffer(
+  gl: WebGL2RenderingContext,
+  model: ModelData
+) {
+  const positions = new Float32Array(model.faces.length * 3 * 3);
+  const normals = new Float32Array(model.faces.length * 3 * 3);
+
+  let posOffset = 0;
+  for (const face of model.faces) {
+    let index = 0;
+    for (const vertexIndex of face.vertices) {
+      positions.set(model.vertices[vertexIndex], posOffset + index * 3);
+      index++;
+    }
+
+    index = 0;
+    for (const normalIndex of face.normals) {
+      normals.set(model.normals[normalIndex], posOffset + index * 3);
+      index++;
+    }
+
+    posOffset += 9;
+  }
+
+  const geometryBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, geometryBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+  const normalsBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, normalsBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+  return {
+    geometryBuffer,
+    normalsBuffer,
+  };
+}
+
+export function initGL(gl: WebGL2RenderingContext, model: ModelData) {
+  const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+  const fragmentShader = createShader(
+    gl,
+    gl.FRAGMENT_SHADER,
+    fragmentShaderSource
+  );
+
+  const program = createProgram(gl, vertexShader, fragmentShader);
+
+  const positionAttributeLocation = gl.getAttribLocation(program, 'a_position');
+  const normalAttributeLocation = gl.getAttribLocation(program, 'a_normal');
+  const matrixLocation = gl.getUniformLocation(program, 'u_matrix');
+  const lightLocation = gl.getUniformLocation(program, 'u_lightDirection');
+
+  // createGeometryBuffer(gl, model);
+  const { geometryBuffer, normalsBuffer } = createGeometryWithNormalsBuffer(
+    gl,
+    model
+  );
 
   //
   const vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
 
   gl.enableVertexAttribArray(positionAttributeLocation);
+  gl.enableVertexAttribArray(normalAttributeLocation);
 
-  const size = 3; // 2 components per iteration
-  const type = gl.FLOAT; // the data is 32bit floats
-  const normalize = false; // don't normalize the data
-  const stride = 0; // 0 = move forward size * sizeof(type) each iteration to get the next position
-  const offset = 0; // start at the beginning of the buffer
+  const size = 3; // 3 components per iteration
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, geometryBuffer);
   gl.vertexAttribPointer(
     positionAttributeLocation,
     size,
-    type,
-    normalize,
-    stride,
-    offset
+    /* type */ gl.FLOAT,
+    /* normalize */ false,
+    /* stride */ 0,
+    /* offset */ 0
   );
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, normalsBuffer);
+  gl.vertexAttribPointer(
+    normalAttributeLocation,
+    size,
+    /* type */ gl.FLOAT,
+    /* normalize */ false,
+    /* stride */ 0,
+    /* offset */ 0
+  );
+  gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
   // gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-  // Clear the canvas
-  gl.clearColor(0, 0, 0, 0);
-  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST);
+  gl.enable(gl.CULL_FACE);
+  gl.clearColor(0.9, 0.9, 0.9, 1);
 
-  // Tell it to use our program (pair of shaders)
   gl.useProgram(program);
 
-  // Bind the attribute/buffer set we want.
   gl.bindVertexArray(vao);
 
   function tick(time: number) {
-    draw(gl, matrixLocation, model, size, time);
+    draw(gl, matrixLocation, lightLocation, model, size, time);
     requestAnimationFrame(tick);
   }
 
@@ -148,6 +183,7 @@ void main() {
 function draw(
   gl: WebGL2RenderingContext,
   matrixLocation: WebGLUniformLocation | null,
+  lightLocation: WebGLUniformLocation | null,
   model: ModelData,
   size: number,
   time: number
@@ -165,10 +201,14 @@ function draw(
   // matrix = m4.zRotate(matrix, Math.PI * 0.1);
   matrix = m4.scale(matrix, 40, 40, 40);
 
-  console.log('matrix:', matrix);
-
   // Set the matrix.
   gl.uniformMatrix4fv(matrixLocation, false, matrix);
+
+  const light = normalize3v([0, 0.5, 0.75]);
+
+  gl.uniform3fv(lightLocation, light);
+
+  // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
   gl.drawArrays(
     gl.TRIANGLES,
