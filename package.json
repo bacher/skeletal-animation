@@ -12,7 +12,9 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build"
+    "build": "react-scripts build",
+    "obj-json": "cd objToJson && yarn start",
+    "copy-model": "cp 'objToJson/example/man_cube.json' 'public/model.json'"
   },
   "eslintConfig": {
     "extends": [

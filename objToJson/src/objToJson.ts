@@ -1,14 +1,13 @@
 import path from 'path';
 import fs from 'fs/promises';
+import glob from 'glob';
 
 import type { ModelData, Point, Point2D, AnyFace } from './types';
 
-const FILE = './example/man_s2.obj';
-
-const addNormals = false;
+const addNormals = true;
 const addUVs = false;
 
-const POINT_PARTS_COUNT = 1 + (addUVs ? 1 + (addNormals ? 1 : 0) : 0);
+const POINT_PARTS_COUNT = 1 + (addUVs ? 1 : 0) + (addNormals ? 1 : 0);
 
 function parsePoint(line: string, command: string): Point {
   const point = line.split(/\s/).map(parseFloat);
@@ -110,10 +109,10 @@ function parseFace(line: string, model: ModelData): AnyFace[] {
 
     if (addUVs) {
       data.uvs = points.map((data) => data.uv);
+    }
 
-      if (addNormals) {
-        data.normals = points.map((data) => data.normal);
-      }
+    if (addNormals) {
+      data.normals = points.map((data) => data.normal);
     }
 
     return data;
@@ -121,10 +120,19 @@ function parseFace(line: string, model: ModelData): AnyFace[] {
 }
 
 async function run() {
-  const file = await fs.readFile(FILE, 'utf-8');
+  const files = await getFiles();
 
-  console.info('Loaded file:', FILE);
-  console.info('--------------');
+  for (const filepath of files) {
+    if (filepath !== files[0]) {
+      console.info('---');
+    }
+
+    await processFile(filepath);
+  }
+}
+
+async function processFile(filepath: string) {
+  const file = await fs.readFile(filepath, 'utf-8');
 
   const lines = file.split('\n');
 
@@ -193,26 +201,26 @@ async function run() {
     }
   }
 
-  console.info(`Models loaded: ${models.length}`);
+  console.info(`File ${filepath} loaded, models found ${models.length}:`);
 
   for (const model of models) {
     const info = [`vertexes: ${model.vertices.length}`];
 
     if (addUVs) {
       info.push(`uvs: ${model.uvs.length}`);
+    }
 
-      if (addNormals) {
-        info.push(`normals: ${model.normals.length}`);
-      }
+    if (addNormals) {
+      info.push(`normals: ${model.normals.length}`);
     }
 
     info.push(`faces: ${model.faces.length}`);
 
-    console.info(`Model "${model.name}" loaded (${info.join(', ')})`);
+    console.info(`  Model "${model.name}" loaded (${info.join(', ')})`);
 
-    const dir = path.dirname(FILE);
-    const extName = path.extname(FILE);
-    const fileName = path.basename(FILE, extName);
+    const dir = path.dirname(filepath);
+    const extName = path.extname(filepath);
+    const fileName = path.basename(filepath, extName);
 
     const data: any = { ...model };
 
@@ -231,8 +239,20 @@ async function run() {
 
     await fs.writeFile(outFile, JSON.stringify(data));
 
-    console.info(`File saved: ${outFile}`);
+    console.info(`Converted json saved: ${outFile}`);
   }
+}
+
+async function getFiles(): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    glob('example/*.obj', (error, files) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(files);
+      }
+    });
+  });
 }
 
 run().catch((error) => {
