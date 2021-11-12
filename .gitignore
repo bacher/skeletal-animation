@@ -23,4 +23,5 @@ yarn-debug.log*
 yarn-error.log*
 
 # processed example models
-objToJson/example/*.json
+obj-converter/example/*.json
+dae-converter/example/*.json

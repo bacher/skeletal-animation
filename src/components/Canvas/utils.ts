@@ -1,6 +1,6 @@
 import * as dat from 'dat.gui';
 
-import type { ModelData } from '../../../objToJson/src';
+import type { ModelData } from '../../../obj-converter/src';
 import { m4 } from '../../utils/m4';
 import { vertexShaderSource, fragmentShaderSource } from '../../shaders/basic';
 import { normalize3v } from '../../utils/vec';
