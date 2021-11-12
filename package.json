@@ -12,7 +12,7 @@
     "typescript": "^4.1.2"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "dev": "react-scripts start",
     "build": "react-scripts build",
     "test": "tsc --noEmit",
     "obj-convert": "cd obj-converter && yarn start",

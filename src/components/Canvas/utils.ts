@@ -1,9 +1,20 @@
 import * as dat from 'dat.gui';
 
-import type { ModelData } from '../../../obj-converter/src';
 import { m4 } from '../../utils/m4';
 import { vertexShaderSource, fragmentShaderSource } from '../../shaders/basic';
 import { normalize3v } from '../../utils/vec';
+
+export type ModelDataV2 = {
+  name: string;
+  vertices: number[];
+  uvs: number[];
+  normals: number[];
+  faces: {
+    v: [number, number, number];
+    n: [number, number, number];
+    t: [number, number, number];
+  }[];
+};
 
 const light = {
   x: -0.4,
@@ -97,7 +108,7 @@ function createProgram(
   return program;
 }
 
-function createGeometryBuffer(gl: WebGL2RenderingContext, model: ModelData) {
+function createGeometryBuffer(gl: WebGL2RenderingContext, model: ModelDataV2) {
   const positionBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
   const positions = new Float32Array(model.faces.length * 3 * 3);
@@ -105,8 +116,11 @@ function createGeometryBuffer(gl: WebGL2RenderingContext, model: ModelData) {
   let posOffset = 0;
   for (const face of model.faces) {
     let index = 0;
-    for (const vertexIndex of face.vertices) {
-      positions.set(model.vertices[vertexIndex], posOffset + index * 3);
+    for (const vertexIndex of face.v) {
+      positions.set(
+        model.vertices.slice(vertexIndex * 3, vertexIndex * 3 + 3),
+        posOffset + index * 3
+      );
       index++;
     }
 
@@ -118,7 +132,7 @@ function createGeometryBuffer(gl: WebGL2RenderingContext, model: ModelData) {
 
 function createGeometryWithNormalsBuffer(
   gl: WebGL2RenderingContext,
-  model: ModelData
+  model: ModelDataV2
 ) {
   const positions = new Float32Array(model.faces.length * 3 * 3);
   const normals = new Float32Array(model.faces.length * 3 * 3);
@@ -126,14 +140,20 @@ function createGeometryWithNormalsBuffer(
   let posOffset = 0;
   for (const face of model.faces) {
     let index = 0;
-    for (const vertexIndex of face.vertices) {
-      positions.set(model.vertices[vertexIndex], posOffset + index * 3);
+    for (const vertexIndex of face.v) {
+      positions.set(
+        model.vertices.slice(vertexIndex * 3, vertexIndex * 3 + 3),
+        posOffset + index * 3
+      );
       index++;
     }
 
     index = 0;
-    for (const normalIndex of face.normals) {
-      normals.set(model.normals[normalIndex], posOffset + index * 3);
+    for (const normalIndex of face.n) {
+      normals.set(
+        model.normals.slice(normalIndex * 3, normalIndex * 3 + 3),
+        posOffset + index * 3
+      );
       index++;
     }
 
@@ -156,7 +176,7 @@ function createGeometryWithNormalsBuffer(
   };
 }
 
-export function initGL(gl: WebGL2RenderingContext, model: ModelData) {
+export function initGL(gl: WebGL2RenderingContext, model: ModelDataV2) {
   const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
   const fragmentShader = createShader(
     gl,
@@ -245,14 +265,14 @@ function draw(
     model: WebGLUniformLocation | null;
     light: WebGLUniformLocation | null;
   },
-  model: ModelData,
+  model: ModelDataV2,
   size: number,
   time: number
 ) {
   const projectionMatrix = m4.projection(
     gl.canvas.clientWidth,
     gl.canvas.clientHeight,
-    400
+    1000
   );
 
   let modelMatrix = m4.identify();
