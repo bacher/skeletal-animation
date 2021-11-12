@@ -71,8 +71,6 @@ function parseGeometry(data: ColladaGeometry): Geometry {
     const t2 = faces[offset + 5];
     const t3 = faces[offset + 8];
 
-    console.log(n1, n2, n3);
-
     result.faces.push({
       v: [p1, p2, p3],
       n: [n1, n2, n3],
