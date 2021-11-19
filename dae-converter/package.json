@@ -7,9 +7,9 @@
     "example": "example"
   },
   "scripts": {
-    "start": "ts-node src/daeConverter.ts",
-    "test": "ts-node-dev src/daeConverter.ts",
-    "dev": "ts-node-dev --respawn src/daeConverter.ts"
+    "start": "ts-node src/index.ts",
+    "test": "ts-node-dev src/index.ts",
+    "dev": "ts-node-dev --respawn src/index.ts"
   },
   "keywords": [
     "3d",

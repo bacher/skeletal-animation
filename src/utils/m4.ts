@@ -1,40 +1,59 @@
-export type M4 = number[];
+import { Vec4 } from './vec';
+
+export type Mat4 = [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+];
 
 export const m4 = {
-  identify(): M4 {
+  identify(): Mat4 {
     return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
   },
 
-  translation(tx: number, ty: number, tz: number): M4 {
+  translation(tx: number, ty: number, tz: number): Mat4 {
     return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, tx, ty, tz, 1];
   },
 
-  xRotation(angleInRadians: number): M4 {
+  xRotation(angleInRadians: number): Mat4 {
     const c = Math.cos(angleInRadians);
     const s = Math.sin(angleInRadians);
 
     return [1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, 0, 0, 0, 1];
   },
 
-  yRotation(angleInRadians: number): M4 {
+  yRotation(angleInRadians: number): Mat4 {
     const c = Math.cos(angleInRadians);
     const s = Math.sin(angleInRadians);
 
     return [c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, 0, 0, 0, 1];
   },
 
-  zRotation(angleInRadians: number): M4 {
+  zRotation(angleInRadians: number): Mat4 {
     const c = Math.cos(angleInRadians);
     const s = Math.sin(angleInRadians);
 
     return [c, s, 0, 0, -s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
   },
 
-  scaling(sx: number, sy: number, sz: number): M4 {
+  scaling(sx: number, sy: number, sz: number): Mat4 {
     return [sx, 0, 0, 0, 0, sy, 0, 0, 0, 0, sz, 0, 0, 0, 0, 1];
   },
 
-  multiply(a: M4, b: M4): M4 {
+  multiply(a: Mat4, b: Mat4): Mat4 {
     const b00 = b[0];
     const b01 = b[1];
     const b02 = b[2];
@@ -88,7 +107,7 @@ export const m4 = {
     ];
   },
 
-  multiplyVector(m: M4, vec4: number[]): number[] {
+  multiplyVector(m: Mat4, vec4: Vec4): Vec4 {
     const [x1, x2, x3, x4] = vec4;
 
     return [
@@ -99,27 +118,27 @@ export const m4 = {
     ];
   },
 
-  translate(m: M4, tx: number, ty: number, tz: number): M4 {
+  translate(m: Mat4, tx: number, ty: number, tz: number): Mat4 {
     return m4.multiply(m, m4.translation(tx, ty, tz));
   },
 
-  xRotate(m: M4, angleInRadians: number): M4 {
+  xRotate(m: Mat4, angleInRadians: number): Mat4 {
     return m4.multiply(m, m4.xRotation(angleInRadians));
   },
 
-  yRotate(m: M4, angleInRadians: number): M4 {
+  yRotate(m: Mat4, angleInRadians: number): Mat4 {
     return m4.multiply(m, m4.yRotation(angleInRadians));
   },
 
-  zRotate(m: M4, angleInRadians: number): M4 {
+  zRotate(m: Mat4, angleInRadians: number): Mat4 {
     return m4.multiply(m, m4.zRotation(angleInRadians));
   },
 
-  scale(m: M4, sx: number, sy: number, sz: number): M4 {
+  scale(m: Mat4, sx: number, sy: number, sz: number): Mat4 {
     return m4.multiply(m, m4.scaling(sx, sy, sz));
   },
 
-  projection(width: number, height: number, depth: number): M4 {
+  projection(width: number, height: number, depth: number): Mat4 {
     return [
       1 / width,
       0,

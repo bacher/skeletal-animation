@@ -1,11 +1,12 @@
 import path from 'path';
 import fs from 'fs/promises';
+import { chunk } from 'lodash';
 import glob from 'glob';
 import xmlParser from 'fast-xml-parser';
 
-async function getFiles(): Promise<string[]> {
+async function getFiles(globs: string[]): Promise<string[]> {
   return new Promise((resolve, reject) => {
-    glob('example/*.dae', (error, files) => {
+    glob(globs.join('|'), (error, files) => {
       if (error) {
         reject(error);
       } else {
@@ -29,10 +30,13 @@ type ColladaGeometry = {
   };
 };
 
+type Vec2 = [number, number, number];
+type Vec3 = [number, number, number];
+
 type Geometry = {
-  vertices: number[];
-  normals: number[];
-  uvs: number[];
+  vertices: Vec3[];
+  normals: Vec3[];
+  uvs: Vec2[];
   faces: {
     v: number[];
     n: number[];
@@ -43,9 +47,18 @@ type Geometry = {
 function parseGeometry(data: ColladaGeometry): Geometry {
   const { source, triangles } = data.mesh;
 
-  const vertices = source[0].float_array.split(/\s/).map(parseFloat);
-  const normals = source[1].float_array.split(/\s/).map(parseFloat);
-  const uvs = source[2].float_array.split(/\s/).map(parseFloat);
+  const vertices = chunk(
+    source[0].float_array.split(/\s/).map(parseFloat),
+    3,
+  ) as Vec3[];
+  const normals = chunk(
+    source[1].float_array.split(/\s/).map(parseFloat),
+    3,
+  ) as Vec3[];
+  const uvs = chunk(
+    source[2].float_array.split(/\s/).map(parseFloat),
+    2,
+  ) as Vec2[];
 
   const faces = triangles.p.split(/\s/).map(Number);
 
@@ -81,10 +94,50 @@ function parseGeometry(data: ColladaGeometry): Geometry {
   return result;
 }
 
-async function run() {
-  const files = await getFiles();
+type ColladaController = {
+  controller: {
+    skin: {
+      bind_shape_matrix: string;
+      source: any[];
+      joints: any;
+      vertex_weights: any[];
+    };
+  };
+};
 
-  for (const filePath of files) {
+type Bones = {};
+
+function parseBones({ controller }: ColladaController): Bones {
+  console.log(controller.skin);
+
+  return 123;
+}
+
+type ColladaVisualScenes = {
+  visual_scene: {
+    node: {
+      matrix: string;
+      instance_geometry: unknown;
+    };
+  };
+};
+
+type SceneData = {
+  matrix: number[] | undefined;
+};
+
+function parseScene({ visual_scene }: ColladaVisualScenes): SceneData {
+  const matrix = visual_scene.node?.matrix?.split(/\s+/).map(parseFloat);
+
+  return {
+    matrix,
+  };
+}
+
+export async function run({ files }: { files: string[] }) {
+  const filePaths = await getFiles(files);
+
+  for (const filePath of filePaths) {
     const xmlData = await fs.readFile(filePath, 'utf-8');
 
     const parsedCollada = xmlParser.parse(xmlData);
@@ -101,6 +154,8 @@ async function run() {
     } = parsedCollada.COLLADA;
 
     const g = parseGeometry(geometry);
+    // const b = parseBones(library_controllers);
+    const s = parseScene(library_visual_scenes);
 
     const dir = path.dirname(filePath);
     const extName = path.extname(filePath);
@@ -108,14 +163,8 @@ async function run() {
 
     const outFile = path.join(dir, `${fileName}.json`);
 
-    await fs.writeFile(outFile, JSON.stringify(g));
+    await fs.writeFile(outFile, JSON.stringify({ ...g, ...s }));
 
     console.info(`Converted json saved: ${outFile}`);
   }
 }
-
-run().catch((error) => {
-  console.error('Critical Error:');
-  console.error(error);
-  process.exit(10);
-});

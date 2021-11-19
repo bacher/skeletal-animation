@@ -2,18 +2,19 @@ import * as dat from 'dat.gui';
 
 import { m4 } from '../../utils/m4';
 import { vertexShaderSource, fragmentShaderSource } from '../../shaders/basic';
-import { normalize3v } from '../../utils/vec';
+import { normalize3v, Vec2, Vec3 } from '../../utils/vec';
+import { Mat4 } from '../../utils/m4';
 
 export type ModelDataV2 = {
-  name: string;
-  vertices: number[];
-  uvs: number[];
-  normals: number[];
+  vertices: Vec3[];
+  uvs: Vec2[];
+  normals: Vec3[];
   faces: {
-    v: [number, number, number];
-    n: [number, number, number];
-    t: [number, number, number];
+    v: Vec3;
+    n: Vec3;
+    t: Vec3;
   }[];
+  matrix: Mat4 | undefined;
 };
 
 const light = {
@@ -42,19 +43,19 @@ export function init() {
   const lightDir = gui.addFolder('Light');
   lightDir.open();
 
-  lightDir.add(light, 'x', -1, 1, 0.1);
-  lightDir.add(light, 'y', -1, 1, 0.1);
-  lightDir.add(light, 'z', -1, 1, 0.1);
+  lightDir.add(light, 'x', -1, 1, 0.01);
+  lightDir.add(light, 'y', -1, 1, 0.01);
+  lightDir.add(light, 'z', -1, 1, 0.01);
 
   const modelDir = gui.addFolder('Model');
   modelDir.open();
   modelDir.add(modelControl, 'x', -400, 400);
   modelDir.add(modelControl, 'y', -400, 400);
   modelDir.add(modelControl, 'z', -400, 400);
-  modelDir.add(modelControl, 'rX', -1, 1, 0.1);
-  modelDir.add(modelControl, 'rY', -1, 1, 0.1);
-  modelDir.add(modelControl, 'rZ', -1, 1, 0.1);
-  modelDir.add(modelControl, 'scale', 0, 10);
+  modelDir.add(modelControl, 'rX', -1, 1, 0.01);
+  modelDir.add(modelControl, 'rY', -1, 1, 0.01);
+  modelDir.add(modelControl, 'rZ', -1, 1, 0.01);
+  modelDir.add(modelControl, 'scale', 0, 10, 0.1);
 
   const sceneDir = gui.addFolder('Scene');
   sceneDir.open();
@@ -64,7 +65,7 @@ export function init() {
 function createShader(
   gl: WebGL2RenderingContext,
   type: GLenum,
-  source: string
+  source: string,
 ): WebGLShader {
   const shader = gl.createShader(type);
 
@@ -87,7 +88,7 @@ function createShader(
 function createProgram(
   gl: WebGL2RenderingContext,
   vertexShader: WebGLShader,
-  fragmentShader: WebGLShader
+  fragmentShader: WebGLShader,
 ): WebGLProgram {
   const program = gl.createProgram();
 
@@ -117,10 +118,7 @@ function createGeometryBuffer(gl: WebGL2RenderingContext, model: ModelDataV2) {
   for (const face of model.faces) {
     let index = 0;
     for (const vertexIndex of face.v) {
-      positions.set(
-        model.vertices.slice(vertexIndex * 3, vertexIndex * 3 + 3),
-        posOffset + index * 3
-      );
+      positions.set(model.vertices[vertexIndex], posOffset + index * 3);
       index++;
     }
 
@@ -132,7 +130,7 @@ function createGeometryBuffer(gl: WebGL2RenderingContext, model: ModelDataV2) {
 
 function createGeometryWithNormalsBuffer(
   gl: WebGL2RenderingContext,
-  model: ModelDataV2
+  model: ModelDataV2,
 ) {
   const positions = new Float32Array(model.faces.length * 3 * 3);
   const normals = new Float32Array(model.faces.length * 3 * 3);
@@ -141,19 +139,13 @@ function createGeometryWithNormalsBuffer(
   for (const face of model.faces) {
     let index = 0;
     for (const vertexIndex of face.v) {
-      positions.set(
-        model.vertices.slice(vertexIndex * 3, vertexIndex * 3 + 3),
-        posOffset + index * 3
-      );
+      positions.set(model.vertices[vertexIndex], posOffset + index * 3);
       index++;
     }
 
     index = 0;
     for (const normalIndex of face.n) {
-      normals.set(
-        model.normals.slice(normalIndex * 3, normalIndex * 3 + 3),
-        posOffset + index * 3
-      );
+      normals.set(model.normals[normalIndex], posOffset + index * 3);
       index++;
     }
 
@@ -181,7 +173,7 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelDataV2) {
   const fragmentShader = createShader(
     gl,
     gl.FRAGMENT_SHADER,
-    fragmentShaderSource
+    fragmentShaderSource,
   );
 
   const program = createProgram(gl, vertexShader, fragmentShader);
@@ -195,7 +187,7 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelDataV2) {
   // createGeometryBuffer(gl, model);
   const { geometryBuffer, normalsBuffer } = createGeometryWithNormalsBuffer(
     gl,
-    model
+    model,
   );
 
   //
@@ -214,7 +206,7 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelDataV2) {
     /* type */ gl.FLOAT,
     /* normalize */ false,
     /* stride */ 0,
-    /* offset */ 0
+    /* offset */ 0,
   );
 
   gl.bindBuffer(gl.ARRAY_BUFFER, normalsBuffer);
@@ -224,7 +216,7 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelDataV2) {
     /* type */ gl.FLOAT,
     /* normalize */ false,
     /* stride */ 0,
-    /* offset */ 0
+    /* offset */ 0,
   );
   gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
@@ -248,7 +240,7 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelDataV2) {
       },
       model,
       size,
-      time
+      time,
     );
     requestAnimationFrame(tick);
   }
@@ -267,12 +259,12 @@ function draw(
   },
   model: ModelDataV2,
   size: number,
-  time: number
+  time: number,
 ) {
   const projectionMatrix = m4.projection(
     gl.canvas.clientWidth,
     gl.canvas.clientHeight,
-    1000
+    1000,
   );
 
   let modelMatrix = m4.identify();
@@ -280,30 +272,34 @@ function draw(
     modelMatrix,
     modelControl.x,
     modelControl.y,
-    modelControl.z
+    modelControl.z,
   );
 
   let modelRotationMatrix = m4.identify();
   modelRotationMatrix = m4.xRotate(
     modelRotationMatrix,
-    Math.PI * modelControl.rX
+    Math.PI * modelControl.rX,
   );
   modelRotationMatrix = m4.yRotate(
     modelRotationMatrix,
-    Math.PI * modelControl.rY + (scene.rotate ? -time * 0.002 : 1)
+    Math.PI * modelControl.rY + (scene.rotate ? -time * 0.002 : 1),
   );
   modelRotationMatrix = m4.zRotate(
     modelRotationMatrix,
-    Math.PI * modelControl.rZ
+    Math.PI * modelControl.rZ,
   );
 
   modelMatrix = m4.multiply(modelMatrix, modelRotationMatrix);
+
+  if (model.matrix) {
+    modelMatrix = m4.multiply(modelMatrix, model.matrix);
+  }
 
   modelMatrix = m4.scale(
     modelMatrix,
     modelControl.scale * 40,
     modelControl.scale * 40,
-    modelControl.scale * 40
+    modelControl.scale * 40,
   );
 
   // Set the matrix.
@@ -324,6 +320,6 @@ function draw(
   gl.drawArrays(
     gl.TRIANGLES,
     /* offset */ 0,
-    /* count */ model.faces.length * size
+    /* count */ model.faces.length * size,
   );
 }
