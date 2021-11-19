@@ -3,12 +3,19 @@ uniform mat4 u_projection;
 uniform mat4 u_model;
 uniform sampler2D u_coords_texture;
 // uniform sampler2D u_normals_texture;
-in vec2 a_coords_index;
-in vec2 a_normal_index;
+in uint a_coords_index;
+// in vec2 a_normal_index;
 out vec3 v_normal;
 
 void main() {
-  vec4 a_position = texture(u_coords_texture, a_coords_index);
+  // vec4 a_position = texture(u_coords_texture, a_coords_index);
+  
+  uint tex_size = uint(textureSize(u_coords_texture, 0));
+  uint ind = uint(a_coords_index);
+  uint pixelX = ind % tex_size;
+  uint pixelY = ind / tex_size;
+  
+  vec4 a_position = texelFetch(u_coords_texture, ivec2(pixelX, pixelY), 0);
   
   // v_normal = (u_model * vec4(a_normal, 1)).xyz;
   // v_normal = texture(u_normals_texture, a_normal_index);
@@ -31,6 +38,6 @@ void main() {
   vec3 normal = normalize(v_normal);
   float light = dot(normal, u_lightDirection);
   outColor = vec4(1, 0, 0, 1);
-  outColor.rgb *= light;
+  outColor.rgb *= 0.3 + 0.7*light;
 }
 `;
