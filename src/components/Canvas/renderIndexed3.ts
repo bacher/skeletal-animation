@@ -287,7 +287,7 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelDataV2) {
   );
 
   const boneBindLocation = gl.getAttribLocation(program, 'a_bone_bind');
-  // const weightsLocation = gl.getAttribLocation(program, 'a_weights');
+  const weightsLocation = gl.getAttribLocation(program, 'a_weights');
 
   const uniforms = {
     projection: gl.getUniformLocation(program, 'u_projection'),
@@ -313,7 +313,7 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelDataV2) {
 
   gl.enableVertexAttribArray(positionAttributeLocation);
   gl.enableVertexAttribArray(boneBindLocation);
-  // gl.enableVertexAttribArray(weightsLocation);
+  gl.enableVertexAttribArray(weightsLocation);
   // gl.enableVertexAttribArray(normalAttributeLocation);
 
   gl.bindTexture(gl.TEXTURE_2D, coordsTexture);
@@ -345,15 +345,15 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelDataV2) {
     /* stride */ 0,
     /* offset */ 0,
   );
-  // gl.bindBuffer(gl.ARRAY_BUFFER, boneWeightsBuffer);
-  // gl.vertexAttribPointer(
-  //   positionAttributeLocation,
-  //   4,
-  //   /* type */ gl.FLOAT,
-  //   false,
-  //   /* stride */ 0,
-  //   /* offset */ 0,
-  // );
+  gl.bindBuffer(gl.ARRAY_BUFFER, boneWeightsBuffer);
+  gl.vertexAttribPointer(
+    weightsLocation,
+    4,
+    /* type */ gl.FLOAT,
+    false,
+    /* stride */ 0,
+    /* offset */ 0,
+  );
 
   gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
