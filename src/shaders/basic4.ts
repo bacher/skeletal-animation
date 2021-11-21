@@ -3,9 +3,9 @@ uniform mat4 u_projection;
 uniform mat4 u_camera;
 uniform mat4 u_model;
 uniform sampler2D u_coords_texture;
-uniform vec3 u_bones_pos[3];
-uniform vec3 u_bones_pos_current[3];
-uniform vec4 u_bones_rotation[3];
+uniform vec3 u_bones_pos[18];
+uniform vec3 u_bones_pos_current[18];
+uniform vec4 u_bones_rotation[18];
 // uniform sampler2D u_normals_texture;
 in uint a_coords_index;
 // in vec2 a_normal_index;
@@ -30,7 +30,7 @@ void main() {
     uint bone_index = a_bone_bind[i];
     float weight = a_weights[i];
     
-    if (weight > 0.0) {   
+    if (weight > 0.0) {
       vec3 bone_pos = u_bones_pos[bone_index];
       vec3 bone_pos_current = u_bones_pos_current[bone_index];
       vec4 q = u_bones_rotation[bone_index];

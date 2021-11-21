@@ -33,7 +33,7 @@ const light = {
 const modelControl = {
   x: 0,
   y: 0,
-  z: 0,
+  z: 200,
   rX: 0,
   rY: 0,
   rZ: 0,
