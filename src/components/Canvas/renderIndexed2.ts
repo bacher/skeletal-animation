@@ -29,14 +29,23 @@ const modelControl = {
   x: 0,
   y: 0,
   z: 0,
-  rX: 0.1,
+  rX: 0,
   rY: 0,
   rZ: 0,
   scale: 3,
 };
 
+const cameraControl = {
+  x: 0,
+  y: -400,
+  z: 0,
+  rX: 0.1,
+  rY: 0,
+  rZ: 0,
+};
+
 const scene = {
-  rotate: false,
+  rotate: true,
 };
 
 export function init() {
@@ -58,6 +67,15 @@ export function init() {
   modelDir.add(modelControl, 'rY', -1, 1, 0.01);
   modelDir.add(modelControl, 'rZ', -1, 1, 0.01);
   modelDir.add(modelControl, 'scale', 0, 10, 0.1);
+
+  const cameraDir = gui.addFolder('Camera');
+  cameraDir.open();
+  cameraDir.add(cameraControl, 'x', -400, 400);
+  cameraDir.add(cameraControl, 'y', -400, 400);
+  cameraDir.add(cameraControl, 'z', -400, 400);
+  cameraDir.add(cameraControl, 'rX', -1, 1, 0.01);
+  cameraDir.add(cameraControl, 'rY', -1, 1, 0.01);
+  cameraDir.add(cameraControl, 'rZ', -1, 1, 0.01);
 
   const sceneDir = gui.addFolder('Scene');
   sceneDir.open();
@@ -226,6 +244,7 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelDataV2) {
     'a_normal_index',
   );
   const projectionLocation = gl.getUniformLocation(program, 'u_projection');
+  const cameraLocation = gl.getUniformLocation(program, 'u_camera');
   const modelLocation = gl.getUniformLocation(program, 'u_model');
   const lightLocation = gl.getUniformLocation(program, 'u_lightDirection');
 
@@ -277,6 +296,7 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelDataV2) {
       gl,
       {
         projection: projectionLocation,
+        camera: cameraLocation,
         model: modelLocation,
         light: lightLocation,
       },
@@ -295,6 +315,7 @@ function draw(
   gl: WebGL2RenderingContext,
   locations: {
     projection: WebGLUniformLocation | null;
+    camera: WebGLUniformLocation | null;
     model: WebGLUniformLocation | null;
     light: WebGLUniformLocation | null;
   },
@@ -322,11 +343,11 @@ function draw(
   );
   modelRotationMatrix = m4.yRotate(
     modelRotationMatrix,
-    Math.PI * modelControl.rY + (scene.rotate ? -time * 0.002 : 1),
+    Math.PI * modelControl.rY,
   );
   modelRotationMatrix = m4.zRotate(
     modelRotationMatrix,
-    Math.PI * modelControl.rZ,
+    Math.PI * modelControl.rZ + (scene.rotate ? -time * 0.001 : 0),
   );
 
   modelMatrix = m4.multiply(modelMatrix, modelRotationMatrix);
@@ -342,8 +363,22 @@ function draw(
     modelControl.scale * 40,
   );
 
+  let cameraMatrix = m4.identify();
+  cameraMatrix = m4.xRotate(cameraMatrix, 0.5 * Math.PI);
+
+  cameraMatrix = m4.xRotate(cameraMatrix, cameraControl.rX * Math.PI);
+  cameraMatrix = m4.yRotate(cameraMatrix, cameraControl.rY * Math.PI);
+  cameraMatrix = m4.zRotate(cameraMatrix, cameraControl.rZ * Math.PI);
+  cameraMatrix = m4.translate(
+    cameraMatrix,
+    cameraControl.x,
+    cameraControl.y,
+    cameraControl.z,
+  );
+
   // Set the matrix.
   gl.uniformMatrix4fv(locations.projection, false, projectionMatrix);
+  gl.uniformMatrix4fv(locations.camera, false, cameraMatrix);
   gl.uniformMatrix4fv(locations.model, false, modelMatrix);
 
   const lightVector = m4.multiplyVector(modelRotationMatrix, [

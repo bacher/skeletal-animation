@@ -2,7 +2,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import glob from 'glob';
 
-import type { ModelData, Point, Point2D, AnyFace } from './types';
+import type { ModelData, Point, Point2D, AnyFace, Vec3 } from './types';
 
 const addNormals = true;
 const addUVs = false;
@@ -103,19 +103,23 @@ function parseFace(line: string, model: ModelData): AnyFace[] {
   }
 
   return triangles.map((points) => {
-    const data: any = {
-      vertices: points.map((data) => data.vertex),
-    };
+    const vertices = points.map((data) => data.vertex);
+    let uvs;
+    let normals;
 
     if (addUVs) {
-      data.uvs = points.map((data) => data.uv);
+      uvs = points.map((data) => data.uv);
     }
 
     if (addNormals) {
-      data.normals = points.map((data) => data.normal);
+      normals = points.map((data) => data.normal);
     }
 
-    return data;
+    return {
+      v: vertices,
+      n: normals,
+      t: uvs,
+    };
   });
 }
 
@@ -225,16 +229,16 @@ async function processFile(filepath: string) {
     const data: any = { ...model };
 
     if (!addUVs) {
-      delete data.uvs;
+      delete data.t;
     }
 
     if (!addNormals) {
-      delete data.normals;
+      delete data.n;
     }
 
     const outFile = path.join(
       dir,
-      `${fileName}_${model.name.toLowerCase()}.json`
+      `${fileName}_${model.name.toLowerCase()}.json`,
     );
 
     await fs.writeFile(outFile, JSON.stringify(data));

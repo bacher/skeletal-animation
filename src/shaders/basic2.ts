@@ -1,5 +1,6 @@
 export const vertexShaderSource = `#version 300 es
 uniform mat4 u_projection;
+uniform mat4 u_camera;
 uniform mat4 u_model;
 uniform sampler2D u_coords_texture;
 // uniform sampler2D u_normals_texture;
@@ -23,7 +24,7 @@ void main() {
 
   // gl_Position = vec4(a_position[0]*0.1, a_position[1]*0.1, a_position[2]*0.1, a_position[3]);
   // gl_Position = a_position * vec4(0.3, 0.3, 0, 1);
-  gl_Position = u_projection * u_model * a_position;
+  gl_Position = u_projection * u_camera * u_model * a_position;
 }
 `;
 
