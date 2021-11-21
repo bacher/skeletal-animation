@@ -1,20 +1,7 @@
 import path from 'path';
 import fs from 'fs/promises';
-import { chunk } from 'lodash';
-import glob from 'glob';
 import xmlParser from 'fast-xml-parser';
-
-async function getFiles(globs: string[]): Promise<string[]> {
-  return new Promise((resolve, reject) => {
-    glob(globs.join('|'), (error, files) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(files);
-      }
-    });
-  });
-}
+import chunk from 'lodash/chunk';
 
 type ColladaGeometry = {
   mesh: {
@@ -134,10 +121,8 @@ function parseScene({ visual_scene }: ColladaVisualScenes): SceneData {
   };
 }
 
-export async function run({ files }: { files: string[] }) {
-  const filePaths = await getFiles(files);
-
-  for (const filePath of filePaths) {
+export async function convert({ files }: { files: string[] }) {
+  for (const filePath of files) {
     const xmlData = await fs.readFile(filePath, 'utf-8');
 
     const parsedCollada = xmlParser.parse(xmlData);
