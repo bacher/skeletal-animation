@@ -7,8 +7,12 @@ import { Mat4 } from '../../utils/m4';
 
 const TEX_SIDE = 64;
 
+type Weight = [number, number];
+type WeightSet = Weight[];
+
 export type ModelDataV2 = {
   vertices: Vec3[];
+  weights: WeightSet[];
   uvs: Vec2[];
   normals: Vec3[];
   faces: {
@@ -16,6 +20,7 @@ export type ModelDataV2 = {
     n: Vec3;
     t: Vec3;
   }[];
+  bones: Vec3[];
   matrix: Mat4 | undefined;
 };
 
@@ -48,6 +53,14 @@ const scene = {
   rotate: true,
 };
 
+const bones = {
+  lastBoneOffset: {
+    x: 0,
+    y: 0,
+    z: 0,
+  },
+};
+
 export function init() {
   const gui = new dat.GUI({ name: 'My GUI' });
 
@@ -76,6 +89,12 @@ export function init() {
   cameraDir.add(cameraControl, 'rX', -1, 1, 0.01);
   cameraDir.add(cameraControl, 'rY', -1, 1, 0.01);
   cameraDir.add(cameraControl, 'rZ', -1, 1, 0.01);
+
+  const bonesDir = gui.addFolder('Bones');
+  bonesDir.open();
+  bonesDir.add(bones.lastBoneOffset, 'x', -10, 10, 0.1);
+  bonesDir.add(bones.lastBoneOffset, 'y', -10, 10, 0.1);
+  bonesDir.add(bones.lastBoneOffset, 'z', -10, 10, 0.1);
 
   const sceneDir = gui.addFolder('Scene');
   sceneDir.open();
@@ -141,26 +160,36 @@ function createGeometryWithNormalsBuffer(
   const coordsMatSize = TEX_SIDE ** 2;
   const coords = new Float32Array(coordsMatSize * 3);
   const normals = new Float32Array(model.normals.length * 3);
+  const boneBinds = new Uint32Array(model.faces.length * 3 * 4);
+  const boneWeights = new Float32Array(model.faces.length * 3 * 4);
 
-  //console.log('v', model.vertices.length, 'n', model.normals.length);
+  for (let faceIndex = 0; faceIndex < model.faces.length; faceIndex++) {
+    const face = model.faces[faceIndex];
+    coordsIndex.set(face.v, faceIndex * 3);
 
-  let posOffset = 0;
-  for (const face of model.faces) {
-    coordsIndex.set(face.v, posOffset);
+    for (let i = 0; i < face.v.length; i++) {
+      const vertIndex = face.v[i];
+
+      const weightPairs = model.weights[vertIndex];
+
+      for (let pairIndex = 0; pairIndex < 4; pairIndex++) {
+        const [boneIndex, boneWeight] = weightPairs[pairIndex] ?? [0, 0];
+        boneBinds.set([boneIndex], faceIndex * 3 * 4 + i * 4 + pairIndex);
+        boneWeights.set([boneWeight], faceIndex * 3 * 4 + i * 4 + pairIndex);
+      }
+    }
 
     let i = 0;
     for (const normalIndex of face.n) {
       const y = Math.floor(normalIndex / TEX_SIDE);
       const x = normalIndex % TEX_SIDE;
 
-      normalsIndex.set([x / TEX_SIDE, y / TEX_SIDE], posOffset * 2 + i * 2);
+      normalsIndex.set([x / TEX_SIDE, y / TEX_SIDE], faceIndex * 6 + i * 2);
       i++;
     }
-
-    posOffset += 3;
   }
 
-  posOffset = 0;
+  let posOffset = 0;
   for (const vertex of model.vertices) {
     coords.set(vertex, posOffset);
     posOffset += 3;
@@ -179,6 +208,17 @@ function createGeometryWithNormalsBuffer(
   const normalsBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, normalsBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, normalsIndex, gl.STATIC_DRAW);
+
+  const boneBindsBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, boneBindsBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, boneBinds, gl.STATIC_DRAW);
+
+  const boneWeightsBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, boneWeightsBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, boneWeights, gl.STATIC_DRAW);
+
+  console.log('boneBinds', boneBinds);
+  console.log('boneWeights', boneWeights);
 
   gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
@@ -222,6 +262,8 @@ function createGeometryWithNormalsBuffer(
     normalsBuffer,
     coordsTexture,
     // normalsTexture,
+    boneBindsBuffer,
+    boneWeightsBuffer,
   };
 }
 
@@ -243,20 +285,35 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelDataV2) {
     program,
     'a_normal_index',
   );
-  const projectionLocation = gl.getUniformLocation(program, 'u_projection');
-  const cameraLocation = gl.getUniformLocation(program, 'u_camera');
-  const modelLocation = gl.getUniformLocation(program, 'u_model');
-  const lightLocation = gl.getUniformLocation(program, 'u_lightDirection');
+
+  const boneBindLocation = gl.getAttribLocation(program, 'a_bone_bind');
+  // const weightsLocation = gl.getAttribLocation(program, 'a_weights');
+
+  const uniforms = {
+    projection: gl.getUniformLocation(program, 'u_projection'),
+    camera: gl.getUniformLocation(program, 'u_camera'),
+    model: gl.getUniformLocation(program, 'u_model'),
+    light: gl.getUniformLocation(program, 'u_lightDirection'),
+    bonesPos: gl.getUniformLocation(program, 'u_bones_pos'),
+    bonesPosCurrent: gl.getUniformLocation(program, 'u_bones_pos_current'),
+  };
 
   // createGeometryBuffer(gl, model);
-  const { geometryBuffer, normalsBuffer, coordsTexture } =
-    createGeometryWithNormalsBuffer(gl, model);
+  const {
+    geometryBuffer,
+    normalsBuffer,
+    coordsTexture,
+    boneBindsBuffer,
+    boneWeightsBuffer,
+  } = createGeometryWithNormalsBuffer(gl, model);
 
   //
   const vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
 
   gl.enableVertexAttribArray(positionAttributeLocation);
+  gl.enableVertexAttribArray(boneBindLocation);
+  // gl.enableVertexAttribArray(weightsLocation);
   // gl.enableVertexAttribArray(normalAttributeLocation);
 
   gl.bindTexture(gl.TEXTURE_2D, coordsTexture);
@@ -279,6 +336,25 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelDataV2) {
   //   /* stride */ 0,
   //   /* offset */ 0,
   // );
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, boneBindsBuffer);
+  gl.vertexAttribIPointer(
+    boneBindLocation,
+    4,
+    /* type */ gl.UNSIGNED_INT,
+    /* stride */ 0,
+    /* offset */ 0,
+  );
+  // gl.bindBuffer(gl.ARRAY_BUFFER, boneWeightsBuffer);
+  // gl.vertexAttribPointer(
+  //   positionAttributeLocation,
+  //   4,
+  //   /* type */ gl.FLOAT,
+  //   false,
+  //   /* stride */ 0,
+  //   /* offset */ 0,
+  // );
+
   gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -292,17 +368,7 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelDataV2) {
   gl.bindVertexArray(vao);
 
   function tick(time: number) {
-    draw(
-      gl,
-      {
-        projection: projectionLocation,
-        camera: cameraLocation,
-        model: modelLocation,
-        light: lightLocation,
-      },
-      model,
-      time,
-    );
+    draw(gl, uniforms, model, time);
     requestAnimationFrame(tick);
   }
 
@@ -318,6 +384,8 @@ function draw(
     camera: WebGLUniformLocation | null;
     model: WebGLUniformLocation | null;
     light: WebGLUniformLocation | null;
+    bonesPos: WebGLUniformLocation | null;
+    bonesPosCurrent: WebGLUniformLocation | null;
   },
   model: ModelDataV2,
   time: number,
@@ -364,7 +432,7 @@ function draw(
   );
 
   let cameraMatrix = m4.identify();
-  cameraMatrix = m4.xRotate(cameraMatrix, 0.5 * Math.PI);
+  cameraMatrix = m4.xRotate(cameraMatrix, -0.5 * Math.PI);
 
   cameraMatrix = m4.xRotate(cameraMatrix, cameraControl.rX * Math.PI);
   cameraMatrix = m4.yRotate(cameraMatrix, cameraControl.rY * Math.PI);
@@ -380,6 +448,26 @@ function draw(
   gl.uniformMatrix4fv(locations.projection, false, projectionMatrix);
   gl.uniformMatrix4fv(locations.camera, false, cameraMatrix);
   gl.uniformMatrix4fv(locations.model, false, modelMatrix);
+
+  const bonesBuffer = new Float32Array(model.bones.length * 3);
+  for (let i = 0; i < model.bones.length; i++) {
+    bonesBuffer.set(model.bones[i], i * 3);
+  }
+  gl.uniform3fv(locations.bonesPos, bonesBuffer);
+
+  const bonesCurrentBuffer = new Float32Array(model.bones.length * 3);
+  for (let i = 0; i < model.bones.length; i++) {
+    let coords = model.bones[i];
+    if (i === model.bones.length - 1) {
+      coords = [
+        coords[0] + bones.lastBoneOffset.x,
+        coords[1] + bones.lastBoneOffset.y,
+        coords[2] + bones.lastBoneOffset.z,
+      ];
+    }
+    bonesCurrentBuffer.set(coords, i * 3);
+  }
+  gl.uniform3fv(locations.bonesPosCurrent, bonesCurrentBuffer);
 
   const lightVector = m4.multiplyVector(modelRotationMatrix, [
     light.x,
