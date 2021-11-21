@@ -3,6 +3,29 @@ import fs from 'fs/promises';
 import xmlParser from 'fast-xml-parser';
 import chunk from 'lodash/chunk';
 
+import { mat4, vec3 } from 'gl-matrix';
+
+function parseColladaMatrix(data: number[]) {
+  return [
+    data[0],
+    data[4],
+    data[8],
+    data[12],
+    data[1],
+    data[5],
+    data[9],
+    data[13],
+    data[2],
+    data[6],
+    data[10],
+    data[14],
+    data[3],
+    data[7],
+    data[11],
+    data[15],
+  ];
+}
+
 type ColladaGeometry = {
   mesh: {
     source: {
@@ -87,17 +110,72 @@ type ColladaController = {
       bind_shape_matrix: string;
       source: any[];
       joints: any;
-      vertex_weights: any[];
+      vertex_weights: { vcount: string; v: string };
     };
   };
 };
 
-type Bones = {};
+type ControllerData = {
+  bones: Vec3[];
+  weights: [number, number][][];
+};
 
-function parseBones({ controller }: ColladaController): Bones {
-  console.log(controller.skin);
+function parseController({ controller }: ColladaController): ControllerData {
+  // console.log(controller.skin);
 
-  return 123;
+  const [jointsNode, joinsNode, weightsNode] = controller.skin.source;
+  const { vcount, v } = controller.skin.vertex_weights;
+
+  const transformData: number[] = joinsNode.float_array
+    .split(/\s+/)
+    .map(parseFloat);
+
+  const transformMatricesSource = chunk(transformData, 16);
+
+  const bones: Vec3[] = [];
+
+  // const accTransformation = mat4.identity(mat4.create());
+
+  for (const matrix of transformMatricesSource.map(parseColladaMatrix)) {
+    // @ts-ignore
+    const mat = mat4.fromValues(...matrix);
+
+    //mat4.multiply(accTransformation, mat, accTransformation);
+    const pos = vec3.create();
+    vec3.transformMat4(pos, pos, mat);
+
+    bones.push([-pos[0], -pos[2], -pos[1]]);
+  }
+
+  const weights: [number, number][][] = [];
+
+  const weightVariants = weightsNode.float_array.split(/\s+/).map(parseFloat);
+
+  const vCount = vcount.split(/\s+/).map(Number);
+  const vs = v.split(/\s+/).map(Number);
+
+  let offset = 0;
+  for (let vertexIndex = 0; vertexIndex < vCount.length; vertexIndex++) {
+    const cnt = vCount[vertexIndex];
+
+    const vertexWeights: [number, number][] = [];
+
+    for (let i = 0; i < cnt; i++) {
+      const boneIndex = vs[offset];
+      const weight = weightVariants[vs[offset + 1]];
+
+      vertexWeights.push([boneIndex, weight]);
+
+      offset += 2;
+    }
+
+    weights.push(vertexWeights);
+  }
+
+  return {
+    bones,
+    weights,
+  };
 }
 
 type ColladaVisualScenes = {
@@ -139,7 +217,7 @@ export async function convert({ files }: { files: string[] }) {
     } = parsedCollada.COLLADA;
 
     const g = parseGeometry(geometry);
-    // const b = parseBones(library_controllers);
+    const b = parseController(library_controllers);
     const s = parseScene(library_visual_scenes);
 
     const dir = path.dirname(filePath);
@@ -148,7 +226,7 @@ export async function convert({ files }: { files: string[] }) {
 
     const outFile = path.join(dir, `${fileName}.json`);
 
-    await fs.writeFile(outFile, JSON.stringify({ ...g, ...s }));
+    await fs.writeFile(outFile, JSON.stringify({ ...g, ...b, ...s }));
 
     console.info(`Converted json saved: ${outFile}`);
   }
