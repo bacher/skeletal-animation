@@ -158,7 +158,7 @@ function parseController({ controller }: ColladaController): ControllerData {
   for (let vertexIndex = 0; vertexIndex < vCount.length; vertexIndex++) {
     const cnt = vCount[vertexIndex];
 
-    const vertexWeights: [number, number][] = [];
+    let vertexWeights: [number, number][] = [];
 
     for (let i = 0; i < cnt; i++) {
       const boneIndex = vs[offset];
@@ -167,6 +167,21 @@ function parseController({ controller }: ColladaController): ControllerData {
       vertexWeights.push([boneIndex, weight]);
 
       offset += 2;
+    }
+
+    vertexWeights.sort(([, weight1], [, weight2]) => weight2 - weight1);
+
+    if (vertexWeights.length > 4) {
+      vertexWeights = vertexWeights.slice(0, 4);
+
+      const weightSum = vertexWeights.reduce(
+        (acc, [, weight]) => acc + weight,
+        0,
+      );
+
+      for (const weightedBone of vertexWeights) {
+        weightedBone[1] /= weightSum;
+      }
     }
 
     weights.push(vertexWeights);
