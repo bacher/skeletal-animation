@@ -139,12 +139,12 @@ function parseController({ controller }: ColladaController): ControllerData {
   for (const matrix of transformMatricesSource.map(parseColladaMatrix)) {
     // @ts-ignore
     const mat = mat4.fromValues(...matrix);
+    mat4.adjoint(mat, mat);
 
-    //mat4.multiply(accTransformation, mat, accTransformation);
     const pos = vec3.create();
     vec3.transformMat4(pos, pos, mat);
 
-    bones.push([-pos[0], -pos[2], -pos[1]]);
+    bones.push(Array.from(pos) as Vec3);
   }
 
   const weights: [number, number][][] = [];
@@ -217,7 +217,10 @@ export async function convert({ files }: { files: string[] }) {
     } = parsedCollada.COLLADA;
 
     const g = parseGeometry(geometry);
-    const b = parseController(library_controllers);
+    let b;
+    if (library_controllers) {
+      b = parseController(library_controllers);
+    }
     const s = parseScene(library_visual_scenes);
 
     const dir = path.dirname(filePath);

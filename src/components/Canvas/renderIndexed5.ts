@@ -269,7 +269,7 @@ function createGeometryWithNormalsBuffer(
   // gl.bindTexture(gl.TEXTURE_2D, null);
 
   const cubeMesh = new Float32Array(cubeModel.faces.length * 3 * 3);
-  const intensityData = new Float32Array(cubeModel.faces.length * 3);
+  const boneNumberData = new Uint32Array(model.bones.length);
   const bonesOffsetsData = new Float32Array(model.bones.length * 3);
 
   for (let faceI = 0; faceI < cubeModel.faces.length; faceI++) {
@@ -286,15 +286,16 @@ function createGeometryWithNormalsBuffer(
   for (let i = 0; i < model.bones.length; i++) {
     const bonePos = model.bones[i];
     bonesOffsetsData.set(bonePos, i * 3);
+    boneNumberData.set([i], i);
   }
 
   const cubeBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, cubeBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, cubeMesh, gl.STATIC_DRAW);
 
-  const intensityBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, intensityBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, intensityData, gl.STATIC_DRAW);
+  const bonesNumberBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, bonesNumberBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, boneNumberData, gl.STATIC_DRAW);
 
   const bonesOffsetBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, bonesOffsetBuffer);
@@ -308,8 +309,8 @@ function createGeometryWithNormalsBuffer(
     boneBindsBuffer,
     boneWeightsBuffer,
     cubeBuffer,
-    intensityBuffer,
     bonesOffsetBuffer,
+    bonesNumberBuffer,
   };
 }
 
@@ -349,12 +350,13 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelDataV2) {
       attributes: {
         pos: gl.getAttribLocation(programBones, 'a_pos'),
         offset: gl.getAttribLocation(programBones, 'a_offset'),
-        // intensity: gl.getAttribLocation(programBones, 'a_intensity'),
+        boneNumber: gl.getAttribLocation(programBones, 'a_bone_number'),
       },
       uniforms: {
         projection: gl.getUniformLocation(programBones, 'u_projection'),
         camera: gl.getUniformLocation(programBones, 'u_camera'),
         model: gl.getUniformLocation(programBones, 'u_model'),
+        highBone: gl.getUniformLocation(programBones, 'u_high_bone'),
       },
       vao: null as WebGLVertexArrayObject | null,
     },
@@ -367,8 +369,8 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelDataV2) {
     boneBindsBuffer,
     boneWeightsBuffer,
     cubeBuffer,
-    intensityBuffer,
     bonesOffsetBuffer,
+    bonesNumberBuffer,
   } = createGeometryWithNormalsBuffer(gl, model);
 
   //
@@ -426,7 +428,7 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelDataV2) {
 
   gl.enableVertexAttribArray(programs.bonePro.attributes.pos);
   gl.enableVertexAttribArray(programs.bonePro.attributes.offset);
-  // gl.enableVertexAttribArray(programs.bonePro.attributes.intensity);
+  gl.enableVertexAttribArray(programs.bonePro.attributes.boneNumber);
 
   gl.bindBuffer(gl.ARRAY_BUFFER, cubeBuffer);
   gl.vertexAttribPointer(
@@ -448,6 +450,16 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelDataV2) {
     /* offset */ 0,
   );
   gl.vertexAttribDivisor(programs.bonePro.attributes.offset, 1);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, bonesNumberBuffer);
+  gl.vertexAttribIPointer(
+    programs.bonePro.attributes.boneNumber,
+    1,
+    /* type */ gl.UNSIGNED_INT,
+    /* stride */ 0,
+    /* offset */ 0,
+  );
+  gl.vertexAttribDivisor(programs.bonePro.attributes.boneNumber, 1);
 
   // Bones end
 
@@ -614,6 +626,7 @@ function draw(
   gl.uniformMatrix4fv(bonePro.uniforms.projection, false, projectionMatrix);
   gl.uniformMatrix4fv(bonePro.uniforms.camera, false, cameraMatrix);
   gl.uniformMatrix4fv(bonePro.uniforms.model, false, modelMatrix);
+  gl.uniform1ui(bonePro.uniforms.highBone, bones.highlightBone);
 
   gl.disable(gl.DEPTH_TEST);
   gl.disable(gl.CULL_FACE);
