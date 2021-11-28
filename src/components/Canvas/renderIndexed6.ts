@@ -1,4 +1,6 @@
 import * as dat from 'dat.gui';
+// @ts-ignore
+import Quaternion from 'quaternion';
 
 import { m4 } from '../../utils/m4';
 import { vertexShaderSource, fragmentShaderSource } from '../../shaders/basic5';
@@ -6,7 +8,7 @@ import {
   vertexShaderSource as vertBonesSource,
   fragmentShaderSource as fragBonesSource,
 } from '../../shaders/bones';
-import { normalize3v, Vec2, Vec3 } from '../../utils/vec';
+import { normalize3v, Vec2, Vec3, Vec4 } from '../../utils/vec';
 import { Mat4 } from '../../utils/m4';
 import cubeModel from '../../models/cube.json';
 
@@ -20,6 +22,7 @@ export type Joint = {
   index: number;
   matrix: number[];
   pos: Vec3;
+  rot: Vec4;
   children: Joint[];
 };
 
@@ -171,6 +174,65 @@ function createProgram(
   return program;
 }
 
+function applyBones(
+  bones: Joint[],
+  buffer: Float32Array,
+  rot = new Quaternion(),
+) {
+  for (const bone of bones) {
+    //Quaternion(1, 0, 0, 0);
+
+    if (bone.id === 'Bone_014') {
+      bone.rot = Quaternion.fromEuler(
+        parseFloat(localStorage['angleX']) * Math.PI,
+        parseFloat(localStorage['angleY']) * Math.PI,
+        parseFloat(localStorage['angleZ']) * Math.PI,
+      );
+      // bone.rot = [0, 0, 0.317, 0.948];
+      // bone.rot = [0.315, 0.124, 0.041, 0.94];
+    } else if (bone.id === 'Bone_015') {
+      bone.rot = Quaternion.fromEuler(0.5 * Math.PI, 0, 0);
+      // bone.rot = Quaternion.fromEuler(0, 0, 0);
+    } else {
+      bone.rot = new Quaternion();
+    }
+
+    // console.log('rot', rot);
+
+    // SHOULD ROTATE BY DELTA (NOT ABSOLUTE)
+    const newPos = rot.rotateVector(bone.pos);
+
+    // console.log('newPos', bone.pos, newPos);
+
+    buffer.set(newPos, bone.index * 3);
+
+    if (bone.children) {
+      // const boneRot = new Quaternion(bone.rot[3], bone.rot.slice(0, 3));
+      const boneRot = bone.rot;
+
+      const res = rot.mul(boneRot);
+
+      applyBones(bone.children, buffer, res);
+    }
+  }
+}
+
+function generateBonesBuffers(model: ModelDataV2) {
+  const boneNumberData = new Uint32Array(model.bones.length);
+  const bonesOffsetsData = new Float32Array(model.bones.length * 3);
+
+  applyBones(model.skeleton!, bonesOffsetsData);
+
+  for (let i = 0; i < model.bones.length; i++) {
+    boneNumberData.set([i], i);
+  }
+
+  return {
+    boneNumberData,
+    bonesOffsetsData,
+  };
+}
+
 function createGeometryWithNormalsBuffer(
   gl: WebGL2RenderingContext,
   model: ModelDataV2,
@@ -278,8 +340,6 @@ function createGeometryWithNormalsBuffer(
   // gl.bindTexture(gl.TEXTURE_2D, null);
 
   const cubeMesh = new Float32Array(cubeModel.faces.length * 3 * 3);
-  const boneNumberData = new Uint32Array(model.bones.length);
-  const bonesOffsetsData = new Float32Array(model.bones.length * 3);
 
   for (let faceI = 0; faceI < cubeModel.faces.length; faceI++) {
     const face = cubeModel.faces[faceI];
@@ -292,15 +352,11 @@ function createGeometryWithNormalsBuffer(
     }
   }
 
-  for (let i = 0; i < model.bones.length; i++) {
-    const bonePos = model.bones[i];
-    bonesOffsetsData.set(bonePos, i * 3);
-    boneNumberData.set([i], i);
-  }
-
   const cubeBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, cubeBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, cubeMesh, gl.STATIC_DRAW);
+
+  const { boneNumberData, bonesOffsetsData } = generateBonesBuffers(model);
 
   const bonesNumberBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, bonesNumberBuffer);
@@ -559,7 +615,9 @@ function draw(
   cameraMatrix = m4.yRotate(cameraMatrix, cameraControl.rY * Math.PI);
   cameraMatrix = m4.zRotate(
     cameraMatrix,
-    cameraControl.rZ * Math.PI + (scene.rotate ? -time * 0.001 : 0),
+    cameraControl.rZ * Math.PI +
+      -Math.PI / 3 +
+      (scene.rotate ? -time * 0.001 : 0),
   );
 
   gl.useProgram(main.program);
@@ -596,8 +654,6 @@ function draw(
     let quater = [0, 0, 0, 1];
 
     if (i === bones.highlightBone) {
-      //quater = [0, 0.075, 0, 0.997];
-      // quater = [0, 0, 0, 1];
       const halfAngle = (bones.lastBone.rY * Math.PI) / 2;
       quater = [0, Math.sin(halfAngle), 0, Math.cos(halfAngle)];
     }

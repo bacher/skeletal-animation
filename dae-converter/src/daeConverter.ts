@@ -244,6 +244,7 @@ type Joint = {
   index: number;
   matrix: number[];
   pos: number[];
+  rot: number[];
   children: Joint[];
 };
 
@@ -300,6 +301,7 @@ function extractBones(
         matrix,
         index,
         pos: bonesPositions[index],
+        rot: [0, 0, 0, 1],
         children,
       };
     });
