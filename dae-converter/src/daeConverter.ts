@@ -1,6 +1,6 @@
 import path from 'path';
 import fs from 'fs/promises';
-import xmlParser from 'fast-xml-parser';
+import { parse as xmlParse } from 'fast-xml-parser';
 import chunk from 'lodash/chunk';
 
 import { mat4, vec3 } from 'gl-matrix';
@@ -26,16 +26,37 @@ function parseColladaMatrix(data: number[]) {
   ];
 }
 
+type Number16 = [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+];
+
+type TextNode = { _text: string };
+
 type ColladaGeometry = {
   mesh: {
     source: {
-      float_array: string;
+      float_array: TextNode;
       technique_common: any;
     }[];
     vertices: any;
     triangles: {
       input: string[];
-      p: string;
+      p: TextNode;
     };
   };
 };
@@ -58,19 +79,19 @@ function parseGeometry(data: ColladaGeometry): Geometry {
   const { source, triangles } = data.mesh;
 
   const vertices = chunk(
-    source[0].float_array.split(/\s/).map(parseFloat),
+    source[0].float_array._text.split(/\s/).map(parseFloat),
     3,
   ) as Vec3[];
   const normals = chunk(
-    source[1].float_array.split(/\s/).map(parseFloat),
+    source[1].float_array._text.split(/\s/).map(parseFloat),
     3,
   ) as Vec3[];
   const uvs = chunk(
-    source[2].float_array.split(/\s/).map(parseFloat),
+    source[2].float_array._text.split(/\s/).map(parseFloat),
     2,
   ) as Vec2[];
 
-  const faces = triangles.p.split(/\s/).map(Number);
+  const faces = triangles.p._text.split(/\s/).map(Number);
 
   const trianglesCount = faces.length / 9;
 
@@ -110,7 +131,7 @@ type ColladaController = {
       bind_shape_matrix: string;
       source: any[];
       joints: any;
-      vertex_weights: { vcount: string; v: string };
+      vertex_weights: { vcount: TextNode; v: TextNode };
     };
   };
 };
@@ -126,7 +147,7 @@ function parseController({ controller }: ColladaController): ControllerData {
   const [jointsNode, joinsNode, weightsNode] = controller.skin.source;
   const { vcount, v } = controller.skin.vertex_weights;
 
-  const transformData: number[] = joinsNode.float_array
+  const transformData: number[] = joinsNode.float_array._text
     .split(/\s+/)
     .map(parseFloat);
 
@@ -149,10 +170,12 @@ function parseController({ controller }: ColladaController): ControllerData {
 
   const weights: [number, number][][] = [];
 
-  const weightVariants = weightsNode.float_array.split(/\s+/).map(parseFloat);
+  const weightVariants = weightsNode.float_array._text
+    .split(/\s+/)
+    .map(parseFloat);
 
-  const vCount = vcount.split(/\s+/).map(Number);
-  const vs = v.split(/\s+/).map(Number);
+  const vCount = vcount._text.split(/\s+/).map(Number);
+  const vs = v._text.split(/\s+/).map(Number);
 
   let offset = 0;
   for (let vertexIndex = 0; vertexIndex < vCount.length; vertexIndex++) {
@@ -193,24 +216,92 @@ function parseController({ controller }: ColladaController): ControllerData {
   };
 }
 
+type SceneNode = {
+  _id: string;
+  _name: string;
+  _type: 'NODE' | 'JOINT';
+  matrix: TextNode;
+  node?: SceneNode[];
+};
+
+type SceneJointNode = {
+  _id: string;
+  _name: string;
+  _type: 'JOINT';
+  matrix: TextNode;
+  node?: SceneNode[];
+};
+
 type ColladaVisualScenes = {
   visual_scene: {
-    node: {
-      matrix: string;
-      instance_geometry: unknown;
-    };
+    node: SceneNode[];
   };
 };
 
 type SceneData = {
   matrix: number[] | undefined;
+  skeleton: Joint;
 };
 
+type Joint = {
+  id: string;
+  name: string;
+  matrix: number[];
+  pos: number[];
+  children: Joint[];
+};
+
+function extractBones(node: SceneNode, parentMat = mat4.create()): Joint {
+  const matrix = node.matrix._text.split(/\s+/).map(parseFloat) as Number16;
+
+  const mat = mat4.fromValues(...matrix);
+  mat4.adjoint(mat, mat);
+
+  mat4.multiply(mat, mat, parentMat);
+
+  const pos = vec3.fromValues(0, 0, 0);
+  vec3.transformMat4(pos, pos, mat);
+
+  /*
+  console.log(
+    'P',
+    node._name.padEnd(20),
+    Array.from(pos)
+      .map((a) => ((a < 0 ? '' : ' ') + a.toFixed(12)).padEnd(15))
+      .join(' '),
+    Math.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2),
+  );
+   */
+
+  return {
+    id: node._id,
+    name: node._name,
+    matrix,
+    pos: Array.from(pos),
+    children:
+      (
+        node.node?.filter(({ _type }) => _type === 'JOINT') as SceneJointNode[]
+      ).map((joint) => extractBones(joint, mat)) ?? [],
+  };
+}
+
 function parseScene({ visual_scene }: ColladaVisualScenes): SceneData {
-  const matrix = visual_scene.node?.matrix?.split(/\s+/).map(parseFloat);
+  if (visual_scene.node.length !== 1) {
+    throw new Error();
+  }
+
+  const node = visual_scene.node[0];
+
+  const matrix = node?.node
+    ?.find(({ _type }) => _type === 'NODE')
+    ?.matrix?._text.split(/\s+/)
+    .map(parseFloat);
+
+  const skeleton = extractBones(node as SceneJointNode);
 
   return {
     matrix,
+    skeleton,
   };
 }
 
@@ -218,7 +309,15 @@ export async function convert({ files }: { files: string[] }) {
   for (const filePath of files) {
     const xmlData = await fs.readFile(filePath, 'utf-8');
 
-    const parsedCollada = xmlParser.parse(xmlData);
+    const parsedCollada = xmlParse(xmlData, {
+      ignoreAttributes: false,
+      attributeNamePrefix: '_',
+      allowBooleanAttributes: true,
+      alwaysCreateTextNode: true,
+      textNodeName: '_text',
+      arrayMode: (name, parent) =>
+        ['node', 'source'].includes(name.toLowerCase()),
+    });
 
     const {
       library_cameras,
