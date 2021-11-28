@@ -218,6 +218,7 @@ function parseController({ controller }: ColladaController): ControllerData {
 
 type SceneNode = {
   _id: string;
+  _sid: string;
   _name: string;
   _type: 'NODE' | 'JOINT';
   matrix: TextNode;
@@ -238,56 +239,91 @@ type ColladaVisualScenes = {
   };
 };
 
-type SceneData = {
-  matrix: number[] | undefined;
-  skeleton: Joint;
-};
-
 type Joint = {
   id: string;
-  name: string;
+  index: number;
   matrix: number[];
   pos: number[];
   children: Joint[];
 };
 
-function extractBones(node: SceneNode, parentMat = mat4.create()): Joint {
-  const matrix = node.matrix._text.split(/\s+/).map(parseFloat) as Number16;
+function extractBones(
+  nodes: SceneNode[],
+  bonesIndexes: Record<string, number>,
+  bonesPositions: Vec3[],
+  parentMat = mat4.create(),
+): Joint[] {
+  return nodes
+    .filter(({ _type }) => _type === 'JOINT')
+    .map((node) => {
+      const id = node._sid;
 
-  const mat = mat4.fromValues(...matrix);
-  mat4.adjoint(mat, mat);
+      const matrix = node.matrix._text.split(/\s+/).map(parseFloat) as Number16;
 
-  mat4.multiply(mat, mat, parentMat);
+      const mat = mat4.fromValues(...matrix);
+      mat4.adjoint(mat, mat);
+      mat4.multiply(mat, mat, parentMat);
 
-  const pos = vec3.fromValues(0, 0, 0);
-  vec3.transformMat4(pos, pos, mat);
+      const pos = vec3.fromValues(0, 0, 0);
+      vec3.transformMat4(pos, pos, mat);
 
-  /*
-  console.log(
-    'P',
-    node._name.padEnd(20),
-    Array.from(pos)
-      .map((a) => ((a < 0 ? '' : ' ') + a.toFixed(12)).padEnd(15))
-      .join(' '),
-    Math.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2),
-  );
-   */
+      /*
+      console.log(
+        'P',
+        node._name.padEnd(20),
+        Array.from(pos)
+          .map((a) => ((a < 0 ? '' : ' ') + a.toFixed(12)).padEnd(15))
+          .join(' '),
+        Math.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2),
+      );
+       */
 
-  return {
-    id: node._id,
-    name: node._name,
-    matrix,
-    pos: Array.from(pos),
-    children:
-      (
-        node.node?.filter(({ _type }) => _type === 'JOINT') as SceneJointNode[]
-      ).map((joint) => extractBones(joint, mat)) ?? [],
-  };
+      const index = bonesIndexes[id];
+
+      if (isNaN(index)) {
+        throw new Error();
+      }
+
+      let children: Joint[] = [];
+
+      if (node.node) {
+        children = extractBones(
+          node.node.filter(({ _type }) => _type === 'JOINT'),
+          bonesIndexes,
+          bonesPositions,
+          mat,
+        );
+      }
+
+      return {
+        id,
+        matrix,
+        index,
+        pos: bonesPositions[index],
+        children,
+      };
+    });
 }
 
-function parseScene({ visual_scene }: ColladaVisualScenes): SceneData {
+type SceneData = {
+  matrix: number[] | undefined;
+  skeleton: Joint[] | undefined;
+};
+
+function parseScene(
+  { visual_scene }: ColladaVisualScenes,
+  { controller }: ColladaController,
+  bonesPositions: Vec3[],
+): SceneData {
   if (visual_scene.node.length !== 1) {
     throw new Error();
+  }
+
+  const bones = controller.skin.source[0].Name_array._text.split(/\s+/);
+  const bonesIndexes: Record<string, number> = {};
+
+  for (let i = 0; i < bones.length; i++) {
+    bonesIndexes[bones[i]] = i;
   }
 
   const node = visual_scene.node[0];
@@ -297,7 +333,9 @@ function parseScene({ visual_scene }: ColladaVisualScenes): SceneData {
     ?.matrix?._text.split(/\s+/)
     .map(parseFloat);
 
-  const skeleton = extractBones(node as SceneJointNode);
+  const skeleton = node.node
+    ? extractBones(node.node, bonesIndexes, bonesPositions)
+    : undefined;
 
   return {
     matrix,
@@ -331,11 +369,13 @@ export async function convert({ files }: { files: string[] }) {
     } = parsedCollada.COLLADA;
 
     const g = parseGeometry(geometry);
-    let b;
+    let c;
+    let s;
+
     if (library_controllers) {
-      b = parseController(library_controllers);
+      c = parseController(library_controllers);
+      s = parseScene(library_visual_scenes, library_controllers, c.bones);
     }
-    const s = parseScene(library_visual_scenes);
 
     const dir = path.dirname(filePath);
     const extName = path.extname(filePath);
@@ -343,7 +383,7 @@ export async function convert({ files }: { files: string[] }) {
 
     const outFile = path.join(dir, `${fileName}.json`);
 
-    await fs.writeFile(outFile, JSON.stringify({ ...g, ...b, ...s }));
+    await fs.writeFile(outFile, JSON.stringify({ ...g, ...c, ...s }));
 
     console.info(`Converted json saved: ${outFile}`);
   }
