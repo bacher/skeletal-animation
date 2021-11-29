@@ -160,7 +160,7 @@ function parseController({ controller }: ColladaController): ControllerData {
   for (const matrix of transformMatricesSource.map(parseColladaMatrix)) {
     // @ts-ignore
     const mat = mat4.fromValues(...matrix);
-    mat4.adjoint(mat, mat);
+    mat4.transpose(mat, mat);
 
     const pos = vec3.create();
     vec3.transformMat4(pos, pos, mat);
@@ -245,6 +245,24 @@ function subtractVec3(v1: Vec3, v2: Vec3): Vec3 {
   return [v1[0] - v2[0], v1[1] - v2[1], v1[2] - v2[2]];
 }
 
+function printMat(mat: mat4) {
+  return Array.from(mat)
+    .map((a) => a.toFixed(4).padStart(7))
+    .join('  ');
+}
+
+function crossProductVec3(a: vec3, b: vec3): vec3 {
+  const x = a[1] * b[2] - b[1] * a[2];
+  const y = b[0] * a[2] - a[0] * b[2];
+  const z = a[0] * b[1] - b[0] * a[1];
+
+  return vec3.fromValues(x, y, z);
+}
+
+function dotProductVec3(a: vec3, b: vec3): number {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
 function extractBones(
   nodes: SceneNode[],
   bonesIndexes: Record<string, number>,
@@ -260,22 +278,31 @@ function extractBones(
       const matrix = node.matrix._text.split(/\s+/).map(parseFloat) as Number16;
 
       const mat = mat4.fromValues(...matrix);
-      mat4.adjoint(mat, mat);
+      console.log();
+      console.log(' '.repeat(68), printMat(mat));
+
+      mat4.transpose(mat, mat);
       mat4.multiply(mat, mat, parentMat);
 
-      // const pos = vec3.fromValues(0, 0, 0);
-      // vec3.transformMat4(pos, pos, mat);
+      const pos1 = vec3.fromValues(1, 0, 0);
+      const pos2 = vec3.create();
+      vec3.transformMat4(pos2, pos1, mat);
+      vec3.normalize(pos2, pos2);
 
-      /*
+      // https://stackoverflow.com/questions/1171849/finding-quaternion-representing-the-rotation-from-one-vector-to-another
+      const cross = crossProductVec3(pos1, pos2);
+      const dot = dotProductVec3(pos1, pos2);
+      const rot = [...cross, dot];
+
       console.log(
         'P',
-        node._name.padEnd(20),
-        Array.from(pos)
+        node._name.padEnd(15),
+        Array.from(pos2)
           .map((a) => ((a < 0 ? '' : ' ') + a.toFixed(12)).padEnd(15))
           .join(' '),
-        Math.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2),
+        '  ',
+        printMat(mat),
       );
-       */
 
       const index = bonesIndexes[id];
 
@@ -303,7 +330,7 @@ function extractBones(
         index,
         pos,
         offset: subtractVec3(pos, parentPos),
-        rot: [0, 0, 0, 1],
+        rot,
         children,
       };
     });

@@ -208,30 +208,37 @@ function applyBones(
   for (const bone of bones) {
     //Quaternion(1, 0, 0, 0);
 
+    let boneQuat: Quaternion;
+
+    // TODO:
+    /*
     if (bone.id === 'Bone_016') {
-      bone.rot = Quaternion.fromEuler(
+      boneQuat = Quaternion.fromEuler(
         skeleton.a.rotX * Math.PI,
         skeleton.a.rotY * Math.PI,
         skeleton.a.rotZ * Math.PI,
       );
-      // bone.rot = [0, 0, 0.317, 0.948];
-      // bone.rot = [0.315, 0.124, 0.041, 0.94];
+      // boneQuat = [0, 0, 0.317, 0.948];
+      // boneQuat = [0.315, 0.124, 0.041, 0.94];
     } else if (bone.id === 'Bone_017') {
-      // bone.rot = Quaternion.fromEuler(0.5 * Math.PI, 0, 0);
-      bone.rot = Quaternion.fromEuler(
+      // boneQuat = Quaternion.fromEuler(0.5 * Math.PI, 0, 0);
+      boneQuat = Quaternion.fromEuler(
         skeleton.b.rotX * Math.PI,
         skeleton.b.rotY * Math.PI,
         skeleton.b.rotZ * Math.PI,
       );
     } else {
-      bone.rot = new Quaternion();
+      boneQuat = new Quaternion(bone.rot[3], bone.rot.slice(0, 3));
     }
+     */
+
+    boneQuat = new Quaternion(1, [0, 0, 0]);
 
     const newPos = addVec3(parentPos, rot.rotateVector(bone.offset));
 
     posBuffer.set(newPos, bone.index * 3);
 
-    const resRot = rot.mul(bone.rot);
+    const resRot = rot.mul(boneQuat);
 
     const glslRot = [resRot.x, resRot.y, resRot.z, resRot.w];
     rotBuffer.set(glslRot, bone.index * 4);
