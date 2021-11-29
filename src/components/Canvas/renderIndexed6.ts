@@ -8,7 +8,7 @@ import {
   vertexShaderSource as vertBonesSource,
   fragmentShaderSource as fragBonesSource,
 } from '../../shaders/bones';
-import { normalize3v, Vec2, Vec3, Vec4 } from '../../utils/vec';
+import { addVec3, normalize3v, Vec2, Vec3, Vec4 } from '../../utils/vec';
 import { Mat4 } from '../../utils/m4';
 import cubeModel from '../../models/cube.json';
 
@@ -22,6 +22,7 @@ export type Joint = {
   index: number;
   matrix: number[];
   pos: Vec3;
+  offset: Vec3;
   rot: Vec4;
   children: Joint[];
 };
@@ -82,6 +83,19 @@ const bones = {
   highlightBone: 0,
 };
 
+const skeleton = {
+  a: {
+    rotX: 0,
+    rotY: 0,
+    rotZ: 0,
+  },
+  b: {
+    rotX: 0,
+    rotY: 0,
+    rotZ: 0,
+  },
+};
+
 export function init() {
   const gui = new dat.GUI({ name: 'My GUI' });
 
@@ -93,7 +107,7 @@ export function init() {
   lightDir.add(light, 'z', -1, 1, 0.01);
 
   const modelDir = gui.addFolder('Model');
-  modelDir.open();
+  // modelDir.open();
   modelDir.add(modelControl, 'x', -400, 400);
   modelDir.add(modelControl, 'y', -400, 400);
   modelDir.add(modelControl, 'z', -400, 400);
@@ -125,6 +139,15 @@ export function init() {
   const sceneDir = gui.addFolder('Scene');
   sceneDir.open();
   sceneDir.add(scene, 'rotate');
+
+  const skeletonDir = gui.addFolder('Skeleton');
+  skeletonDir.open();
+  skeletonDir.add(skeleton.a, 'rotX', -1, 1, 0.01);
+  skeletonDir.add(skeleton.a, 'rotY', -1, 1, 0.01);
+  skeletonDir.add(skeleton.a, 'rotZ', -1, 1, 0.01);
+  skeletonDir.add(skeleton.b, 'rotX', -1, 1, 0.01);
+  skeletonDir.add(skeleton.b, 'rotY', -1, 1, 0.01);
+  skeletonDir.add(skeleton.b, 'rotZ', -1, 1, 0.01);
 }
 
 function createShader(
@@ -176,60 +199,68 @@ function createProgram(
 
 function applyBones(
   bones: Joint[],
-  buffer: Float32Array,
+  buffers: [Float32Array, Float32Array],
   rot = new Quaternion(),
+  parentPos: Vec3 = [0, 0, 0],
 ) {
+  const [posBuffer, rotBuffer] = buffers;
+
   for (const bone of bones) {
     //Quaternion(1, 0, 0, 0);
 
-    if (bone.id === 'Bone_014') {
+    if (bone.id === 'Bone_016') {
       bone.rot = Quaternion.fromEuler(
-        parseFloat(localStorage['angleX']) * Math.PI,
-        parseFloat(localStorage['angleY']) * Math.PI,
-        parseFloat(localStorage['angleZ']) * Math.PI,
+        skeleton.a.rotX * Math.PI,
+        skeleton.a.rotY * Math.PI,
+        skeleton.a.rotZ * Math.PI,
       );
       // bone.rot = [0, 0, 0.317, 0.948];
       // bone.rot = [0.315, 0.124, 0.041, 0.94];
-    } else if (bone.id === 'Bone_015') {
-      bone.rot = Quaternion.fromEuler(0.5 * Math.PI, 0, 0);
-      // bone.rot = Quaternion.fromEuler(0, 0, 0);
+    } else if (bone.id === 'Bone_017') {
+      // bone.rot = Quaternion.fromEuler(0.5 * Math.PI, 0, 0);
+      bone.rot = Quaternion.fromEuler(
+        skeleton.b.rotX * Math.PI,
+        skeleton.b.rotY * Math.PI,
+        skeleton.b.rotZ * Math.PI,
+      );
     } else {
       bone.rot = new Quaternion();
     }
 
-    // console.log('rot', rot);
+    const newPos = addVec3(parentPos, rot.rotateVector(bone.offset));
 
-    // SHOULD ROTATE BY DELTA (NOT ABSOLUTE)
-    const newPos = rot.rotateVector(bone.pos);
+    posBuffer.set(newPos, bone.index * 3);
 
-    // console.log('newPos', bone.pos, newPos);
+    const resRot = rot.mul(bone.rot);
 
-    buffer.set(newPos, bone.index * 3);
+    const glslRot = [resRot.x, resRot.y, resRot.z, resRot.w];
+    rotBuffer.set(glslRot, bone.index * 4);
 
     if (bone.children) {
-      // const boneRot = new Quaternion(bone.rot[3], bone.rot.slice(0, 3));
-      const boneRot = bone.rot;
-
-      const res = rot.mul(boneRot);
-
-      applyBones(bone.children, buffer, res);
+      applyBones(bone.children, buffers, resRot, newPos);
     }
   }
 }
 
 function generateBonesBuffers(model: ModelDataV2) {
   const boneNumberData = new Uint32Array(model.bones.length);
-  const bonesOffsetsData = new Float32Array(model.bones.length * 3);
-
-  applyBones(model.skeleton!, bonesOffsetsData);
 
   for (let i = 0; i < model.bones.length; i++) {
     boneNumberData.set([i], i);
   }
 
+  return boneNumberData;
+}
+
+function generateBonesPositionBuffers(model: ModelDataV2) {
+  const bonesOffsetsData = new Float32Array(model.bones.length * 3);
+  const bonesOrientationData = new Float32Array(model.bones.length * 4);
+
+  applyBones(model.skeleton!, [bonesOffsetsData, bonesOrientationData]);
+
   return {
-    boneNumberData,
     bonesOffsetsData,
+    bonesOrientationData,
   };
 }
 
@@ -356,7 +387,8 @@ function createGeometryWithNormalsBuffer(
   gl.bindBuffer(gl.ARRAY_BUFFER, cubeBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, cubeMesh, gl.STATIC_DRAW);
 
-  const { boneNumberData, bonesOffsetsData } = generateBonesBuffers(model);
+  const boneNumberData = generateBonesBuffers(model);
+  const { bonesOffsetsData } = generateBonesPositionBuffers(model);
 
   const bonesNumberBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, bonesNumberBuffer);
@@ -364,7 +396,7 @@ function createGeometryWithNormalsBuffer(
 
   const bonesOffsetBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, bonesOffsetBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, bonesOffsetsData, gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, bonesOffsetsData, gl.DYNAMIC_DRAW);
 
   return {
     geometryBuffer,
@@ -536,7 +568,7 @@ export function initGL(gl: WebGL2RenderingContext, model: ModelDataV2) {
   gl.clearColor(0.9, 0.9, 0.9, 1);
 
   function tick(time: number) {
-    draw(gl, programs, model, time);
+    draw(gl, programs, model, bonesOffsetBuffer, time);
     requestAnimationFrame(tick);
   }
 
@@ -560,6 +592,7 @@ function draw(
     }
   >,
   model: ModelDataV2,
+  bonesOffsetBuffer: WebGLBuffer | null,
   time: number,
 ) {
   const projectionMatrix = m4.projection(
@@ -623,7 +656,6 @@ function draw(
   gl.useProgram(main.program);
   gl.bindVertexArray(main.vao);
 
-  // Set the matrix.
   gl.uniformMatrix4fv(main.uniforms.projection, false, projectionMatrix);
   gl.uniformMatrix4fv(main.uniforms.camera, false, cameraMatrix);
   gl.uniformMatrix4fv(main.uniforms.model, false, modelMatrix);
@@ -634,32 +666,35 @@ function draw(
   }
   gl.uniform3fv(main.uniforms.bonesPos, bonesBuffer);
 
-  const bonesCurrentBuffer = new Float32Array(model.bones.length * 3);
-  for (let i = 0; i < model.bones.length; i++) {
-    let coords = model.bones[i];
+  const { bonesOffsetsData, bonesOrientationData } =
+    generateBonesPositionBuffers(model);
 
-    if (i === bones.highlightBone) {
-      coords = [
-        coords[0] + bones.lastBone.x,
-        coords[1] + bones.lastBone.y,
-        coords[2] + bones.lastBone.z,
-      ];
-    }
-    bonesCurrentBuffer.set(coords, i * 3);
-  }
-  gl.uniform3fv(main.uniforms.bonesPosCurrent, bonesCurrentBuffer);
+  // const bonesCurrentBuffer = new Float32Array(model.bones.length * 3);
+  // for (let i = 0; i < model.bones.length; i++) {
+  //   let coords = model.bones[i];
+  //
+  //   if (i === bones.highlightBone) {
+  //     coords = [
+  //       coords[0] + bones.lastBone.x,
+  //       coords[1] + bones.lastBone.y,
+  //       coords[2] + bones.lastBone.z,
+  //     ];
+  //   }
+  //   bonesCurrentBuffer.set(coords, i * 3);
+  // }
+  gl.uniform3fv(main.uniforms.bonesPosCurrent, bonesOffsetsData);
 
-  const bonesRotationBuffer = new Float32Array(model.bones.length * 4);
-  for (let i = 0; i < model.bones.length; i++) {
-    let quater = [0, 0, 0, 1];
-
-    if (i === bones.highlightBone) {
-      const halfAngle = (bones.lastBone.rY * Math.PI) / 2;
-      quater = [0, Math.sin(halfAngle), 0, Math.cos(halfAngle)];
-    }
-    bonesRotationBuffer.set(quater, i * 4);
-  }
-  gl.uniform4fv(main.uniforms.bonesRotation, bonesRotationBuffer);
+  // const bonesRotationBuffer = new Float32Array(model.bones.length * 4);
+  // for (let i = 0; i < model.bones.length; i++) {
+  //   let quater = [0, 0, 0, 1];
+  //
+  //   if (i === bones.highlightBone) {
+  //     const halfAngle = (bones.lastBone.rY * Math.PI) / 2;
+  //     quater = [0, Math.sin(halfAngle), 0, Math.cos(halfAngle)];
+  //   }
+  //   bonesRotationBuffer.set(quater, i * 4);
+  // }
+  gl.uniform4fv(main.uniforms.bonesRotation, bonesOrientationData);
 
   gl.uniform1ui(main.uniforms.highlightBone, bones.highlightBone);
 
@@ -687,6 +722,13 @@ function draw(
 
   gl.useProgram(bonePro.program);
   gl.bindVertexArray(bonePro.vao);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, bonesOffsetBuffer);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    generateBonesPositionBuffers(model).bonesOffsetsData,
+    gl.DYNAMIC_DRAW,
+  );
 
   gl.uniformMatrix4fv(bonePro.uniforms.projection, false, projectionMatrix);
   gl.uniformMatrix4fv(bonePro.uniforms.camera, false, cameraMatrix);

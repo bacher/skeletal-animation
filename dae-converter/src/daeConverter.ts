@@ -225,14 +225,6 @@ type SceneNode = {
   node?: SceneNode[];
 };
 
-type SceneJointNode = {
-  _id: string;
-  _name: string;
-  _type: 'JOINT';
-  matrix: TextNode;
-  node?: SceneNode[];
-};
-
 type ColladaVisualScenes = {
   visual_scene: {
     node: SceneNode[];
@@ -244,14 +236,20 @@ type Joint = {
   index: number;
   matrix: number[];
   pos: number[];
+  offset: number[];
   rot: number[];
   children: Joint[];
 };
+
+function subtractVec3(v1: Vec3, v2: Vec3): Vec3 {
+  return [v1[0] - v2[0], v1[1] - v2[1], v1[2] - v2[2]];
+}
 
 function extractBones(
   nodes: SceneNode[],
   bonesIndexes: Record<string, number>,
   bonesPositions: Vec3[],
+  parentPos: Vec3,
   parentMat = mat4.create(),
 ): Joint[] {
   return nodes
@@ -265,8 +263,8 @@ function extractBones(
       mat4.adjoint(mat, mat);
       mat4.multiply(mat, mat, parentMat);
 
-      const pos = vec3.fromValues(0, 0, 0);
-      vec3.transformMat4(pos, pos, mat);
+      // const pos = vec3.fromValues(0, 0, 0);
+      // vec3.transformMat4(pos, pos, mat);
 
       /*
       console.log(
@@ -287,11 +285,14 @@ function extractBones(
 
       let children: Joint[] = [];
 
+      const pos: Vec3 = bonesPositions[index];
+
       if (node.node) {
         children = extractBones(
           node.node.filter(({ _type }) => _type === 'JOINT'),
           bonesIndexes,
           bonesPositions,
+          pos,
           mat,
         );
       }
@@ -300,7 +301,8 @@ function extractBones(
         id,
         matrix,
         index,
-        pos: bonesPositions[index],
+        pos,
+        offset: subtractVec3(pos, parentPos),
         rot: [0, 0, 0, 1],
         children,
       };
@@ -336,7 +338,7 @@ function parseScene(
     .map(parseFloat);
 
   const skeleton = node.node
-    ? extractBones(node.node, bonesIndexes, bonesPositions)
+    ? extractBones(node.node, bonesIndexes, bonesPositions, [0, 0, 0])
     : undefined;
 
   return {
