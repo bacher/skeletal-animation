@@ -23,6 +23,7 @@ export type Joint = {
   matrix: number[];
   pos: Vec3;
   offset: Vec3;
+  jointLength: number;
   rot: Vec4;
   children: Joint[];
 };
@@ -206,8 +207,6 @@ function applyBones(
   const [posBuffer, rotBuffer] = buffers;
 
   for (const bone of bones) {
-    //Quaternion(1, 0, 0, 0);
-
     let boneQuat: Quaternion;
 
     // TODO:
@@ -232,9 +231,13 @@ function applyBones(
     }
      */
 
-    boneQuat = new Quaternion(1, [0, 0, 0]);
+    // boneQuat = new Quaternion(1, [0, 0, 0]);
+    boneQuat = new Quaternion(bone.rot[3], bone.rot.slice(0, 3));
 
-    const newPos = addVec3(parentPos, rot.rotateVector(bone.offset));
+    const jointPos = rot.rotateVector([bone.jointLength, 0, 0]);
+    // const jointPos = rot.rotateVector(bone.offset);
+
+    const newPos = addVec3(parentPos, jointPos);
 
     posBuffer.set(newPos, bone.index * 3);
 

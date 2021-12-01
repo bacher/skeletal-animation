@@ -223,11 +223,9 @@ function extractBones(
       const matrix = node.matrix._text.split(/\s+/).map(parseFloat) as Number16;
 
       const mat = mat4.fromValues(...matrix);
-      // console.log();
-      // console.log(' '.repeat(68), printMat(mat));
-
       mat4.transpose(mat, mat);
-      mat4.multiply(mat, mat, parentMat);
+      mat4.invert(mat, mat);
+      mat4.multiply(mat, parentMat, mat);
 
       const pos1 = vec3.fromValues(1, 0, 0);
       const pos2 = vec3.create();
