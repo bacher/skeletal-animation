@@ -2,6 +2,7 @@ import { mat4, vec3 } from 'gl-matrix';
 
 export type Vec2 = [number, number];
 export type Vec3 = [number, number, number];
+export type Vec4 = [number, number, number, number];
 
 export type Number16 = [
   number,
@@ -42,4 +43,22 @@ export function crossProductVec3(a: vec3, b: vec3): vec3 {
 
 export function dotProductVec3(a: vec3, b: vec3): number {
   return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+export function compareTwoVec3(v1: vec3, v2: vec3): void {
+  if (
+    Array.from(v1)
+      .map((a) => a.toFixed(4))
+      .join(' ') !==
+    Array.from(v2)
+      .map((a) => a.toFixed(4))
+      .join(' ')
+  ) {
+    console.log(
+      'Assert failed',
+      Array.from(v1).map((a) => a.toFixed(4)),
+      '!==',
+      Array.from(v2).map((a) => a.toFixed(4)),
+    );
+  }
 }

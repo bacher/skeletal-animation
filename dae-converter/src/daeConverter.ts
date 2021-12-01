@@ -3,16 +3,18 @@ import fs from 'fs/promises';
 import { parse as xmlParse } from 'fast-xml-parser';
 import chunk from 'lodash/chunk';
 
-import { mat4, vec3 } from 'gl-matrix';
+import { mat4, vec3, quat } from 'gl-matrix';
 
 import {
   Vec2,
   Vec3,
+  Vec4,
   Number16,
   subtractVec3,
   crossProductVec3,
   dotProductVec3,
   printMat,
+  compareTwoVec3,
 } from './utils';
 
 type TextNode = { _text: string };
@@ -224,18 +226,25 @@ function extractBones(
 
       const mat = mat4.fromValues(...matrix);
       mat4.transpose(mat, mat);
-      mat4.invert(mat, mat);
       mat4.multiply(mat, parentMat, mat);
 
       const pos1 = vec3.fromValues(1, 0, 0);
+      // const pos1 = vec3.fromValues(...parentPos);
       const pos2 = vec3.create();
       vec3.transformMat4(pos2, pos1, mat);
       vec3.normalize(pos2, pos2);
 
+      /*
       // https://stackoverflow.com/questions/1171849/finding-quaternion-representing-the-rotation-from-one-vector-to-another
       const cross = crossProductVec3(pos1, pos2);
       const dot = dotProductVec3(pos1, pos2);
       const rot = [...cross, dot];
+       */
+
+      const q = quat.rotationTo(quat.create(), pos1, pos2);
+      const rot = Array.from(q) as Vec4;
+
+      // compareTwoVec3(pos2, vec3.transformQuat(vec3.create(), pos1, q));
 
       /*
       console.log(
@@ -256,7 +265,9 @@ function extractBones(
 
       let children: Joint[] = [];
 
-      const pos: Vec3 = bonesPositions[index];
+      // const pos: Vec3 = bonesPositions[index];
+      const posVec = vec3.fromValues(0, 0, 0);
+      const pos = Array.from(vec3.transformMat4(posVec, posVec, mat)) as Vec3;
 
       if (node.node) {
         children = extractBones(
@@ -269,6 +280,11 @@ function extractBones(
       }
 
       const offset = subtractVec3(pos, parentPos);
+      const jointLength = vec3.len(offset);
+
+      const b = vec3.fromValues(jointLength, 0, 0);
+      vec3.transformQuat(b, b, q);
+      compareTwoVec3(offset, b);
 
       return {
         id,
@@ -276,7 +292,7 @@ function extractBones(
         index,
         pos,
         offset,
-        jointLength: vec3.len(offset),
+        jointLength,
         rot,
         children,
       };

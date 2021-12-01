@@ -231,11 +231,12 @@ function applyBones(
     }
      */
 
-    // boneQuat = new Quaternion(1, [0, 0, 0]);
-    boneQuat = new Quaternion(bone.rot[3], bone.rot.slice(0, 3));
-
-    const jointPos = rot.rotateVector([bone.jointLength, 0, 0]);
+    boneQuat = new Quaternion(1, [0, 0, 0]);
     // const jointPos = rot.rotateVector(bone.offset);
+    const jointPos = bone.offset;
+    // -- or --
+    // boneQuat = new Quaternion(bone.rot[3], bone.rot.slice(0, 3));
+    // const jointPos = rot.rotateVector([bone.jointLength, 0, 0]);
 
     const newPos = addVec3(parentPos, jointPos);
 
