@@ -5,45 +5,15 @@ import chunk from 'lodash/chunk';
 
 import { mat4, vec3 } from 'gl-matrix';
 
-function parseColladaMatrix(data: number[]) {
-  return [
-    data[0],
-    data[4],
-    data[8],
-    data[12],
-    data[1],
-    data[5],
-    data[9],
-    data[13],
-    data[2],
-    data[6],
-    data[10],
-    data[14],
-    data[3],
-    data[7],
-    data[11],
-    data[15],
-  ];
-}
-
-type Number16 = [
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-];
+import {
+  Vec2,
+  Vec3,
+  Number16,
+  subtractVec3,
+  crossProductVec3,
+  dotProductVec3,
+  printMat,
+} from './utils';
 
 type TextNode = { _text: string };
 
@@ -60,9 +30,6 @@ type ColladaGeometry = {
     };
   };
 };
-
-type Vec2 = [number, number];
-type Vec3 = [number, number, number];
 
 type Geometry = {
   vertices: Vec3[];
@@ -157,10 +124,10 @@ function parseController({ controller }: ColladaController): ControllerData {
 
   // const accTransformation = mat4.identity(mat4.create());
 
-  for (const matrix of transformMatricesSource.map(parseColladaMatrix)) {
-    // @ts-ignore
-    const mat = mat4.fromValues(...matrix);
+  for (const matrix of transformMatricesSource) {
+    const mat = mat4.fromValues(...(matrix as Number16));
     mat4.transpose(mat, mat);
+    mat4.invert(mat, mat);
 
     const pos = vec3.create();
     vec3.transformMat4(pos, pos, mat);
@@ -168,7 +135,7 @@ function parseController({ controller }: ColladaController): ControllerData {
     bones.push(Array.from(pos) as Vec3);
   }
 
-  const weights: [number, number][][] = [];
+  const weights: Vec2[][] = [];
 
   const weightVariants = weightsNode.float_array._text
     .split(/\s+/)
@@ -241,28 +208,6 @@ type Joint = {
   children: Joint[];
 };
 
-function subtractVec3(v1: Vec3, v2: Vec3): Vec3 {
-  return [v1[0] - v2[0], v1[1] - v2[1], v1[2] - v2[2]];
-}
-
-function printMat(mat: mat4) {
-  return Array.from(mat)
-    .map((a) => a.toFixed(4).padStart(7))
-    .join('  ');
-}
-
-function crossProductVec3(a: vec3, b: vec3): vec3 {
-  const x = a[1] * b[2] - b[1] * a[2];
-  const y = b[0] * a[2] - a[0] * b[2];
-  const z = a[0] * b[1] - b[0] * a[1];
-
-  return vec3.fromValues(x, y, z);
-}
-
-function dotProductVec3(a: vec3, b: vec3): number {
-  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-}
-
 function extractBones(
   nodes: SceneNode[],
   bonesIndexes: Record<string, number>,
@@ -278,8 +223,8 @@ function extractBones(
       const matrix = node.matrix._text.split(/\s+/).map(parseFloat) as Number16;
 
       const mat = mat4.fromValues(...matrix);
-      console.log();
-      console.log(' '.repeat(68), printMat(mat));
+      // console.log();
+      // console.log(' '.repeat(68), printMat(mat));
 
       mat4.transpose(mat, mat);
       mat4.multiply(mat, mat, parentMat);
@@ -294,8 +239,8 @@ function extractBones(
       const dot = dotProductVec3(pos1, pos2);
       const rot = [...cross, dot];
 
+      /*
       console.log(
-        'P',
         node._name.padEnd(15),
         Array.from(pos2)
           .map((a) => ((a < 0 ? '' : ' ') + a.toFixed(12)).padEnd(15))
@@ -303,6 +248,7 @@ function extractBones(
         '  ',
         printMat(mat),
       );
+       */
 
       const index = bonesIndexes[id];
 
@@ -324,12 +270,15 @@ function extractBones(
         );
       }
 
+      const offset = subtractVec3(pos, parentPos);
+
       return {
         id,
         matrix,
         index,
         pos,
-        offset: subtractVec3(pos, parentPos),
+        offset,
+        jointLength: vec3.len(offset),
         rot,
         children,
       };
