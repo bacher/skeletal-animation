@@ -17,6 +17,7 @@ import {
   compareTwoVec,
   rotationBetween,
 } from './utils';
+import { first } from 'lodash';
 
 type TextNode = { _text: string };
 
@@ -283,6 +284,7 @@ function extractBones(
 type SceneData = {
   matrix: number[] | undefined;
   skeleton: Joint[] | undefined;
+  boneIndexes: string[];
 };
 
 function parseScene(
@@ -315,6 +317,107 @@ function parseScene(
   return {
     matrix,
     skeleton,
+    boneIndexes: bones,
+  };
+}
+
+type ColladaAnimationData = {
+  animation: {
+    _id: string;
+    _name: string;
+    animation: ColladaAnimation[];
+  }[];
+};
+
+type ColladaAnimation = {
+  _id: string;
+  _name: string;
+  source: {
+    _id: string;
+    float_array: TextNode;
+    technique_common: any;
+  }[];
+  sampler: any;
+  channel: any;
+};
+
+type AnimationPart = {
+  id: string;
+  boneIndex: number;
+  timeArray: number[];
+  transforms: Number16[];
+};
+
+type AnimationData = {
+  animation: {
+    parts: AnimationPart[];
+  };
+};
+
+function parseAnimations(
+  { animation }: ColladaAnimationData,
+  boneIndexes: string[],
+): AnimationData | undefined {
+  if (!animation || animation.length === 0) {
+    return undefined;
+  }
+
+  if (animation.length > 1) {
+    throw new Error("Several animations doesn't support yet");
+  }
+
+  const sortedBones = boneIndexes
+    .map((name, index) => ({ name, index }))
+    .sort((a, b) => b.name.length - a.name.length);
+
+  const mainAnim = animation[0];
+
+  const parts = mainAnim.animation;
+
+  const animations: AnimationPart[] = parts.map((part) => {
+    const { _id, source } = part;
+
+    const bone = sortedBones.find(({ name }) => _id.includes(name));
+
+    if (!bone) {
+      throw new Error('Joint is not found');
+    }
+
+    const input = source.find(({ _id }) => _id.includes('input'));
+    const output = source.find(({ _id }) => _id.includes('output'));
+    // const interpolation = source.find(({ _id }) => _id.includes('interpolation'));
+
+    if (!input || !output) {
+      throw new Error('Invalid animation');
+    }
+
+    const timeArray = input.float_array._text.split(/\s+/).map(parseFloat);
+
+    const matrices = chunk(
+      output.float_array._text.split(/\s+/).map(parseFloat),
+      16,
+    ).map((arr) => {
+      const mat = mat4.fromValues(...(arr as Number16));
+      mat4.transpose(mat, mat);
+      return Array.from(mat) as Number16;
+    });
+
+    if (timeArray.length !== matrices.length) {
+      throw new Error('Invalid animation steps');
+    }
+
+    return {
+      id: part._id,
+      boneIndex: bone.index,
+      timeArray,
+      transforms: matrices,
+    };
+  });
+
+  return {
+    animation: {
+      parts: animations,
+    },
   };
 }
 
@@ -329,7 +432,7 @@ export async function convert({ files }: { files: string[] }) {
       alwaysCreateTextNode: true,
       textNodeName: '_text',
       arrayMode: (name, parent) =>
-        ['node', 'source'].includes(name.toLowerCase()),
+        ['node', 'source', 'animation'].includes(name.toLowerCase()),
     });
 
     const {
@@ -340,16 +443,22 @@ export async function convert({ files }: { files: string[] }) {
       library_geometries: { geometry },
       library_controllers,
       library_visual_scenes,
+      library_animations,
       scene,
     } = parsedCollada.COLLADA;
 
     const g = parseGeometry(geometry);
     let c;
     let s;
+    let a;
 
     if (library_controllers) {
       c = parseController(library_controllers);
       s = parseScene(library_visual_scenes, library_controllers, c.bones);
+    }
+
+    if (library_animations && s) {
+      a = parseAnimations(library_animations, s.boneIndexes);
     }
 
     const dir = path.dirname(filePath);
@@ -358,7 +467,7 @@ export async function convert({ files }: { files: string[] }) {
 
     const outFile = path.join(dir, `${fileName}.json`);
 
-    await fs.writeFile(outFile, JSON.stringify({ ...g, ...c, ...s }));
+    await fs.writeFile(outFile, JSON.stringify({ ...g, ...c, ...s, ...a }));
 
     console.info(`Converted json saved: ${outFile}`);
   }
