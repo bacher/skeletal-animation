@@ -14,7 +14,8 @@ import {
   crossProductVec3,
   dotProductVec3,
   printMat,
-  compareTwoVec3,
+  compareTwoVec,
+  rotationBetween,
 } from './utils';
 
 type TextNode = { _text: string };
@@ -235,30 +236,7 @@ function extractBones(
       vec3.transformMat4(pos2, pos1, mat);
       vec3.normalize(pos2, pos2);
 
-      /*
-      // https://stackoverflow.com/questions/1171849/finding-quaternion-representing-the-rotation-from-one-vector-to-another
-      const cross = crossProductVec3(pos1, pos2);
-      const dot = dotProductVec3(pos1, pos2);
-      const rot = [...cross, dot];
-       */
-
-      // const q = quat.rotationTo(quat.create(), pos1, pos2);
-      // -- or --
-      const q = mat4.getRotation(quat.create(), boneMat);
-      const rot = Array.from(q) as Vec4;
-
-      // compareTwoVec3(pos2, vec3.transformQuat(vec3.create(), pos1, q));
-
-      /*
-      console.log(
-        node._name.padEnd(15),
-        Array.from(pos2)
-          .map((a) => ((a < 0 ? '' : ' ') + a.toFixed(12)).padEnd(15))
-          .join(' '),
-        '  ',
-        printMat(mat),
-      );
-       */
+      const q = quat.rotationTo(quat.create(), pos1, pos2);
 
       const index = bonesIndexes[id];
 
@@ -285,9 +263,9 @@ function extractBones(
       const offset = subtractVec3(pos, parentPos);
       const jointLength = vec3.len(offset);
 
-      const b = vec3.fromValues(jointLength, 0, 0);
-      vec3.transformQuat(b, b, q);
-      compareTwoVec3(offset, b);
+      // const b = vec3.fromValues(jointLength, 0, 0);
+      // vec3.transformQuat(b, b, q);
+      // compareTwoVec3(offset, b);
 
       return {
         id,
@@ -296,7 +274,7 @@ function extractBones(
         pos,
         offset,
         jointLength,
-        rot,
+        rot: Array.from(q),
         children,
       };
     });
