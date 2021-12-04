@@ -242,7 +242,9 @@ function extractBones(
       const rot = [...cross, dot];
        */
 
-      const q = quat.rotationTo(quat.create(), pos1, pos2);
+      // const q = quat.rotationTo(quat.create(), pos1, pos2);
+      // -- or --
+      const q = mat4.getRotation(quat.create(), boneMat);
       const rot = Array.from(q) as Vec4;
 
       // compareTwoVec3(pos2, vec3.transformQuat(vec3.create(), pos1, q));
