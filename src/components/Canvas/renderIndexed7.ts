@@ -1,7 +1,5 @@
 import * as dat from 'dat.gui';
 import { mat4, quat, vec3 } from 'gl-matrix';
-// @ts-ignore
-import Quaternion from 'quaternion';
 
 import { m4 } from '../../utils/m4';
 import { vertexShaderSource, fragmentShaderSource } from '../../shaders/basic5';
@@ -118,7 +116,7 @@ const skeleton = {
 };
 
 const animationControl = {
-  frameIndex: 4,
+  frameIndex: 9,
 };
 
 export function init() {
@@ -236,7 +234,7 @@ function applyBones(
   const [posBuffer, rotBuffer] = buffers;
 
   for (const bone of bones) {
-    let boneQuat: Quaternion;
+    let boneQuat: quat;
 
     const anim = animationParts.find((part) => part.boneIndex === bone.index);
 
