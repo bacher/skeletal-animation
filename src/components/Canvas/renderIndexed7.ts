@@ -1,4 +1,5 @@
 import * as dat from 'dat.gui';
+import { mat4, quat, vec3 } from 'gl-matrix';
 // @ts-ignore
 import Quaternion from 'quaternion';
 
@@ -11,6 +12,14 @@ import {
 import { addVec3, normalize3v, Vec2, Vec3, Vec4 } from '../../utils/vec';
 import { Mat4 } from '../../utils/m4';
 import cubeModel from '../../models/cube.json';
+import { compareTwoVec, printVec } from '../../utils/debug';
+
+// @ts-ignore
+window.vec3 = vec3;
+// @ts-ignore
+window.mat4 = mat4;
+// @ts-ignore
+window.quat = quat;
 
 const TEX_SIDE = 64;
 
@@ -28,6 +37,13 @@ export type Joint = {
   children: Joint[];
 };
 
+export type AnimationPart = {
+  id: string;
+  boneIndex: number;
+  timeArray: number[];
+  transforms: Mat4[];
+};
+
 export type ModelDataV2 = {
   vertices: Vec3[];
   weights: WeightSet[];
@@ -41,6 +57,10 @@ export type ModelDataV2 = {
   bones: Vec3[];
   matrix: Mat4 | undefined;
   skeleton: Joint[] | undefined;
+  boneIndexes: string[];
+  animation: {
+    parts: AnimationPart[];
+  };
 };
 
 const light = {
@@ -81,7 +101,7 @@ const bones = {
     rY: 0,
     rZ: 0,
   },
-  highlightBone: 0,
+  highlightBone: 16,
 };
 
 const skeleton = {
@@ -98,7 +118,7 @@ const skeleton = {
 };
 
 const animationControl = {
-  frameIndex: 0,
+  frameIndex: 4,
 };
 
 export function init() {
@@ -156,7 +176,7 @@ export function init() {
 
   const animationDir = gui.addFolder('Animation');
   animationDir.open();
-  animationDir.add(animationControl, 'frameIndex', 0, 10, 1);
+  animationDir.add(animationControl, 'frameIndex', 0, 9, 1);
 }
 
 function createShader(
@@ -208,8 +228,9 @@ function createProgram(
 
 function applyBones(
   bones: Joint[],
+  animationParts: AnimationPart[],
   buffers: [Float32Array, Float32Array],
-  rot = new Quaternion(),
+  rot = quat.create(),
   parentPos: Vec3 = [0, 0, 0],
 ) {
   const [posBuffer, rotBuffer] = buffers;
@@ -217,31 +238,39 @@ function applyBones(
   for (const bone of bones) {
     let boneQuat: Quaternion;
 
-    // TODO:
-    /*
-    if (bone.id === 'Bone_016') {
-      boneQuat = Quaternion.fromEuler(
-        skeleton.a.rotX * Math.PI,
-        skeleton.a.rotY * Math.PI,
-        skeleton.a.rotZ * Math.PI,
-      );
-      // boneQuat = [0, 0, 0.317, 0.948];
-      // boneQuat = [0.315, 0.124, 0.041, 0.94];
-    } else if (bone.id === 'Bone_017') {
-      // boneQuat = Quaternion.fromEuler(0.5 * Math.PI, 0, 0);
-      boneQuat = Quaternion.fromEuler(
-        skeleton.b.rotX * Math.PI,
-        skeleton.b.rotY * Math.PI,
-        skeleton.b.rotZ * Math.PI,
-      );
-    } else {
-      boneQuat = new Quaternion(bone.rot[3], bone.rot.slice(0, 3));
-    }
-     */
+    const anim = animationParts.find((part) => part.boneIndex === bone.index);
 
-    boneQuat = new Quaternion(1, [0, 0, 0]);
+    if (anim) {
+      const animMatArray = anim.transforms[animationControl.frameIndex];
+
+      const initMat = mat4.fromValues(...(bone.matrix as Mat4));
+      const animMat = mat4.fromValues(...(animMatArray as Mat4));
+
+      // Work
+      const aMat = mat4.invert(mat4.create(), initMat);
+      const finMat = mat4.mul(mat4.create(), animMat, aMat);
+      boneQuat = mat4.getRotation(quat.create(), finMat);
+      // -- or --
+      // const aMat = mat4.invert(mat4.create(), animMat);
+      // const finMat = mat4.mul(mat4.create(), aMat, initMat);
+      // boneQuat = mat4.getRotation(quat.create(), finMat);
+
+      // ???
+      // quat.invert(boneQuat, boneQuat);
+      // -- or -- (work)
+      // const initRot = mat4.getRotation(quat.create(), initMat);
+      // const animRot = mat4.getRotation(quat.create(), animMat);
+      // const initInvertRot = quat.invert(quat.create(), initRot);
+      // boneQuat = quat.mul(quat.create(), animRot, initInvertRot);
+    } else {
+      boneQuat = quat.create();
+    }
+
+    // const jointPos = bone.offset;
+    // -- or --
     // const jointPos = rot.rotateVector(bone.offset);
-    const jointPos = bone.offset;
+    // -- or --
+    const jointPos = vec3.transformQuat(vec3.create(), bone.offset, rot);
     // -- or --
     // boneQuat = new Quaternion(bone.rot[3], bone.rot.slice(0, 3));
     // const jointPos = rot.rotateVector([bone.jointLength, 0, 0]);
@@ -250,13 +279,16 @@ function applyBones(
 
     posBuffer.set(newPos, bone.index * 3);
 
-    const resRot = rot.mul(boneQuat);
+    // work
+    const resRot = quat.mul(quat.create(), rot, boneQuat);
+    // -- or --
+    // const resRot = quat.mul(quat.create(), boneQuat, rot);
 
-    const glslRot = [resRot.x, resRot.y, resRot.z, resRot.w];
-    rotBuffer.set(glslRot, bone.index * 4);
+    // rotBuffer.set([resRot.x, resRot.y, resRot.z, resRot.w], bone.index * 4);
+    rotBuffer.set(Array.from(resRot), bone.index * 4);
 
     if (bone.children) {
-      applyBones(bone.children, buffers, resRot, newPos);
+      applyBones(bone.children, animationParts, buffers, resRot, newPos);
     }
   }
 }
@@ -275,7 +307,10 @@ function generateBonesPositionBuffers(model: ModelDataV2) {
   const bonesOffsetsData = new Float32Array(model.bones.length * 3);
   const bonesOrientationData = new Float32Array(model.bones.length * 4);
 
-  applyBones(model.skeleton!, [bonesOffsetsData, bonesOrientationData]);
+  applyBones(model.skeleton!, model.animation.parts, [
+    bonesOffsetsData,
+    bonesOrientationData,
+  ]);
 
   return {
     bonesOffsetsData,
@@ -688,19 +723,6 @@ function draw(
   const { bonesOffsetsData, bonesOrientationData } =
     generateBonesPositionBuffers(model);
 
-  // const bonesCurrentBuffer = new Float32Array(model.bones.length * 3);
-  // for (let i = 0; i < model.bones.length; i++) {
-  //   let coords = model.bones[i];
-  //
-  //   if (i === bones.highlightBone) {
-  //     coords = [
-  //       coords[0] + bones.lastBone.x,
-  //       coords[1] + bones.lastBone.y,
-  //       coords[2] + bones.lastBone.z,
-  //     ];
-  //   }
-  //   bonesCurrentBuffer.set(coords, i * 3);
-  // }
   gl.uniform3fv(main.uniforms.bonesPosCurrent, bonesOffsetsData);
 
   // const bonesRotationBuffer = new Float32Array(model.bones.length * 4);

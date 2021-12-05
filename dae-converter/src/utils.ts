@@ -29,8 +29,8 @@ export function subtractVec3(v1: Vec3, v2: Vec3): Vec3 {
 
 export function printMat(mat: mat4) {
   return Array.from(mat)
-    .map((a) => a.toFixed(4).padStart(7))
-    .join('  ');
+    .map((a) => a.toFixed(6).padStart(10))
+    .join(' ');
 }
 
 export function crossProductVec3(a: vec3, b: vec3): vec3 {

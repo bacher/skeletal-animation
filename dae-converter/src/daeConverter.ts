@@ -224,9 +224,9 @@ function extractBones(
     .map((node) => {
       const id = node._sid;
 
-      const matrix = node.matrix._text.split(/\s+/).map(parseFloat) as Number16;
-
-      const boneMat = mat4.fromValues(...matrix);
+      const boneMat = mat4.fromValues(
+        ...(node.matrix._text.split(/\s+/).map(parseFloat) as Number16),
+      );
       mat4.transpose(boneMat, boneMat);
 
       const mat = mat4.multiply(mat4.create(), parentMat, boneMat);
@@ -270,7 +270,7 @@ function extractBones(
 
       return {
         id,
-        matrix,
+        matrix: Array.from(boneMat),
         index,
         pos,
         offset,
@@ -393,12 +393,14 @@ function parseAnimations(
 
     const timeArray = input.float_array._text.split(/\s+/).map(parseFloat);
 
+    console.log(bone.name);
     const matrices = chunk(
       output.float_array._text.split(/\s+/).map(parseFloat),
       16,
     ).map((arr) => {
       const mat = mat4.fromValues(...(arr as Number16));
       mat4.transpose(mat, mat);
+      console.log(printMat(mat));
       return Array.from(mat) as Number16;
     });
 
