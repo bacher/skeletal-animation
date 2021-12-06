@@ -258,6 +258,25 @@ function applyBones(
       const aMat = mat4.invert(mat4.create(), initMat);
       const finMat = mat4.mul(mat4.create(), animMat, aMat);
       boneQuat = mat4.getRotation(quat.create(), finMat);
+
+      // DEBUG
+      /*const initV = vec3.fromValues(10, 20, 30);
+
+      const v0 = vec3.transformMat4(vec3.create(), initV, animMat);
+
+      const v1 = vec3.transformMat4(vec3.create(), initV, initMat);
+      vec3.transformMat4(v1, v1, finMat);
+
+      const v2 = vec3.transformMat4(vec3.create(), initV, initMat);
+      vec3.transformQuat(v2, v2, boneQuat);
+
+      console.log(v0, v1, v2);
+      console.log('compare 1');
+      compareTwoVec(v0, v1);
+      console.log('compare 2');
+      compareTwoVec(v0, v2);
+      debugger;*/
+
       // -- or --
       // const aMat = mat4.invert(mat4.create(), animMat);
       // const finMat = mat4.mul(mat4.create(), aMat, initMat);
@@ -274,6 +293,8 @@ function applyBones(
       boneQuat = quat.create();
     }
 
+    const resRot = quat.mul(quat.create(), rot, boneQuat);
+
     // const jointPos = bone.offset;
     // -- or --
     // const jointPos = rot.rotateVector(bone.offset);
@@ -284,6 +305,7 @@ function applyBones(
     // const jointPos = rot.rotateVector([bone.jointLength, 0, 0]);
 
     // const newPos = addVec3(parentPos, jointPos);
+    // -- or --
     const newPosV = vec3.create();
     vec3.transformMat4(newPosV, newPosV, resMat);
     const newPos = Array.from(newPosV) as Vec3;
@@ -292,7 +314,6 @@ function applyBones(
 
     // work
     // const bb = quat.invert(quat.create(), boneQuat);
-    const resRot = quat.mul(quat.create(), rot, boneQuat);
     // -- or --
     // const resRot = quat.mul(quat.create(), boneQuat, rot);
 
