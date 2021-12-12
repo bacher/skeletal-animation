@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs/promises';
 import { parse as xmlParse } from 'fast-xml-parser';
-import chunk from 'lodash/chunk';
+import { zip, chunk } from 'lodash';
 
 import { mat4, vec3, quat } from 'gl-matrix';
 
@@ -17,7 +17,6 @@ import {
   compareTwoVec,
   rotationBetween,
 } from './utils';
-import { first } from 'lodash';
 
 type TextNode = { _text: string };
 
@@ -198,7 +197,7 @@ type SceneNode = {
 
 type ColladaVisualScenes = {
   visual_scene: {
-    node: SceneNode[];
+    node?: SceneNode[];
   };
 };
 
@@ -292,27 +291,50 @@ function parseScene(
   { controller }: ColladaController,
   bonesPositions: Vec3[],
 ): SceneData {
-  if (visual_scene.node.length !== 1) {
-    throw new Error();
-  }
-
-  const bones = controller.skin.source[0].Name_array._text.split(/\s+/);
+  const bones: string[] =
+    controller.skin.source[0].Name_array._text.split(/\s+/);
   const bonesIndexes: Record<string, number> = {};
 
   for (let i = 0; i < bones.length; i++) {
     bonesIndexes[bones[i]] = i;
   }
 
-  const node = visual_scene.node[0];
+  let matrix: number[] | undefined;
+  let skeleton: Joint[] | undefined;
 
-  const matrix = node?.node
-    ?.find(({ _type }) => _type === 'NODE')
-    ?.matrix?._text.split(/\s+/)
-    .map(parseFloat);
+  if (visual_scene.node) {
+    if (visual_scene.node.length !== 1) {
+      throw new Error();
+    }
 
-  const skeleton = node.node
-    ? extractBones(node.node, bonesIndexes, bonesPositions, [0, 0, 0])
-    : undefined;
+    const node = visual_scene.node[0];
+
+    matrix = node?.node
+      ?.find(({ _type }) => _type === 'NODE')
+      ?.matrix?._text.split(/\s+/)
+      .map(parseFloat);
+
+    skeleton = node.node
+      ? extractBones(node.node, bonesIndexes, bonesPositions, [0, 0, 0])
+      : undefined;
+  } else {
+    console.warn('Skeleton without relations!');
+
+    const matrices: string[] =
+      controller.skin.source[1].float_array._text.split(/\s+/);
+    const boneMatrices = chunk(matrices, 16);
+    const list = zip(boneMatrices, bones).map(([mat, name]) => ({
+      _id: '',
+      _sid: name!,
+      _name: '',
+      _type: 'JOINT' as 'JOINT',
+      matrix: {
+        _text: mat!.join(' '),
+      },
+    }));
+
+    skeleton = extractBones(list, bonesIndexes, bonesPositions, [0, 0, 0]);
+  }
 
   return {
     matrix,
@@ -380,6 +402,8 @@ function parseAnimations(
     const bone = sortedBones.find(({ name }) => _id.includes(name));
 
     if (!bone) {
+      // console.log('not found', _id);
+      // return undefined;
       throw new Error('Joint is not found');
     }
 
@@ -393,14 +417,14 @@ function parseAnimations(
 
     const timeArray = input.float_array._text.split(/\s+/).map(parseFloat);
 
-    console.log(bone.name);
+    // console.log(bone.name);
     const matrices = chunk(
       output.float_array._text.split(/\s+/).map(parseFloat),
       16,
     ).map((arr) => {
       const mat = mat4.fromValues(...(arr as Number16));
       mat4.transpose(mat, mat);
-      console.log(printMat(mat));
+      // console.log(printMat(mat));
       return Array.from(mat) as Number16;
     });
 

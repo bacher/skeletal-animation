@@ -19,7 +19,9 @@ window.mat4 = mat4;
 // @ts-ignore
 window.quat = quat;
 
-const TEX_SIDE = 64;
+const TEX_SIDE = 128;
+
+const FRAMES_COUNT = 10;
 
 type Weight = [number, number];
 type WeightSet = Weight[];
@@ -74,7 +76,7 @@ const modelControl = {
   rX: 0,
   rY: 0,
   rZ: 0,
-  scale: 3,
+  scale: 90,
 };
 
 const cameraControl = {
@@ -141,7 +143,7 @@ export function init() {
   modelDir.add(modelControl, 'rX', -1, 1, 0.01);
   modelDir.add(modelControl, 'rY', -1, 1, 0.01);
   modelDir.add(modelControl, 'rZ', -1, 1, 0.01);
-  modelDir.add(modelControl, 'scale', 0, 10, 0.1);
+  modelDir.add(modelControl, 'scale', 0, 100, 1);
 
   const cameraDir = gui.addFolder('Camera');
   cameraDir.open();
@@ -178,7 +180,7 @@ export function init() {
 
   animationDir = gui.addFolder('Animation');
   animationDir.open();
-  animationDir.add(animationControl, 'frameIndex', 0, 9, 0.05);
+  animationDir.add(animationControl, 'frameIndex', 0, FRAMES_COUNT, 0.05);
   animationDir.add(animationControl, 'animate');
   animationDir.add(animationControl, 'speed', 0.1, 2, 0.1);
 }
@@ -742,7 +744,7 @@ function draw(
   if (animationControl.animate) {
     const multiplier = 10 ** -animationControl.speed;
 
-    const frameIndex = (time / 1000 / multiplier) % 10;
+    const frameIndex = (time / 1000 / multiplier) % FRAMES_COUNT;
 
     if (frameIndex !== animationControl.frameIndex) {
       animationControl.frameIndex = frameIndex;
@@ -786,9 +788,9 @@ function draw(
 
   modelMatrix = m4.scale(
     modelMatrix,
-    modelControl.scale * 40,
-    modelControl.scale * 40,
-    modelControl.scale * 40,
+    modelControl.scale,
+    modelControl.scale,
+    modelControl.scale,
   );
 
   let cameraMatrix = m4.identify();
