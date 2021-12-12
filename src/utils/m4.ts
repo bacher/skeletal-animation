@@ -1,4 +1,6 @@
 import { Vec4 } from './vec';
+import { mat4, quat, vec3 } from 'gl-matrix';
+import { printVec } from './debug';
 
 export type Mat4 = [
   number,
@@ -159,3 +161,28 @@ export const m4 = {
     ];
   },
 };
+
+export function mixMat4(m1: mat4, m2: mat4, delta: number): mat4 {
+  const q1 = mat4.getRotation(quat.create(), m1);
+  const q2 = mat4.getRotation(quat.create(), m2);
+  const qI = quat.slerp(quat.create(), q1, q2, delta);
+  const finalMat = mat4.fromQuat(mat4.create(), qI);
+
+  /* Scale is not interpolated now
+  const scale1 = mat4.getScaling(vec3.create(), m1);
+  const scale2 = mat4.getScaling(vec3.create(), m2);
+   */
+
+  const translate1 = mat4.getTranslation(vec3.create(), m1);
+  const translate2 = mat4.getTranslation(vec3.create(), m2);
+
+  const finalTranslate = vec3.lerp(
+    vec3.create(),
+    translate1,
+    translate2,
+    delta,
+  );
+
+  const tMat = mat4.fromTranslation(mat4.create(), finalTranslate);
+  return mat4.multiply(mat4.create(), tMat, finalMat);
+}

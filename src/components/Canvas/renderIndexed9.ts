@@ -1,7 +1,7 @@
 import * as dat from 'dat.gui';
 import { mat4, quat, vec3, vec4 } from 'gl-matrix';
 
-import { m4 } from '../../utils/m4';
+import { m4, mixMat4 } from '../../utils/m4';
 import { vertexShaderSource, fragmentShaderSource } from '../../shaders/basic5';
 import {
   vertexShaderSource as vertBonesSource,
@@ -11,7 +11,6 @@ import { addVec3, normalize3v, Vec2, Vec3, Vec4 } from '../../utils/vec';
 import { Mat4 } from '../../utils/m4';
 import cubeModel from '../../models/cube.json';
 import { compareTwoVec, printMat4, printVec } from '../../utils/debug';
-import { transform } from 'lodash';
 
 // @ts-ignore
 window.vec3 = vec3;
@@ -272,32 +271,7 @@ function applyBones(
           ...(anim.transforms[transformIndex2] as Mat4),
         );
 
-        const q1 = mat4.getRotation(quat.create(), transform1);
-        const q2 = mat4.getRotation(quat.create(), transform2);
-        const qI = quat.slerp(quat.create(), q1, q2, delta);
-        const finalMat = mat4.fromQuat(mat4.create(), qI);
-
-        const translate1 = mat4.getTranslation(vec3.create(), transform1);
-        const translate2 = mat4.getTranslation(vec3.create(), transform2);
-
-        const finalTranslate = vec3.lerp(
-          vec3.create(),
-          translate1,
-          translate2,
-          delta,
-        );
-
-        const tMat = mat4.fromTranslation(mat4.create(), finalTranslate);
-        boneMat = mat4.multiply(mat4.create(), tMat, finalMat);
-
-        /*
-        console.log('translate:');
-        printVec(finalTranslate);
-        printMat4(finalMat);
-        console.log('===>');
-        printMat4(boneMat);
-        debugger;
-         */
+        boneMat = mixMat4(transform1, transform2, delta);
       }
     } else {
       boneMat = iniMat;
