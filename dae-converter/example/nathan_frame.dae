@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <asset>
+    <contributor>
+      <author>Blender User</author>
+      <authoring_tool>Blender 2.93.5 commit date:2021-10-05, commit time:12:04, hash:a791bdabd0b2</authoring_tool>
+    </contributor>
+    <created>2021-12-13T00:42:47</created>
+    <modified>2021-12-13T00:42:47</modified>
+    <unit name="meter" meter="1"/>
+    <up_axis>Z_UP</up_axis>
+  </asset>
+  <library_effects>
+    <effect id="rp_nathan_animated_003_mat-effect">
+      <profile_COMMON>
+        <newparam sid="rp_nathan_animated_003_dif-surface">
+          <surface type="2D">
+            <init_from>rp_nathan_animated_003_dif</init_from>
+          </surface>
+        </newparam>
+        <newparam sid="rp_nathan_animated_003_dif-sampler">
+          <sampler2D>
+            <source>rp_nathan_animated_003_dif-surface</source>
+          </sampler2D>
+        </newparam>
+        <technique sid="common">
+          <lambert>
+            <emission>
+              <color sid="emission">0 0 0 1</color>
+            </emission>
+            <diffuse>
+              <texture texture="rp_nathan_animated_003_dif-sampler" texcoord="map1"/>
+            </diffuse>
+            <index_of_refraction>
+              <float sid="ior">1.45</float>
+            </index_of_refraction>
+          </lambert>
+        </technique>
+      </profile_COMMON>
+    </effect>
+  </library_effects>
+  <library_images>
+    <image id="rp_nathan_animated_003_dif" name="rp_nathan_animated_003_dif">
+      <init_from>rp_nathan_animated_003_dif.jpg</init_from>
+    </image>
+  </library_images>
+  <library_materials>
+    <material id="rp_nathan_animated_003_mat-material" name="rp_nathan_animated_003_mat">
+      <instance_effect url="#rp_nathan_animated_003_mat-effect"/>
+    </material>
+  </library_materials>
+  <library_geometries>
+    <geometry id="Mesh-mesh" name="Mesh">
+      <mesh>
+        <source id="Mesh-mesh-positions">
+          <technique_common>
+            <accessor source="#Mesh-mesh-positions-array" count="10828" stride="3">
+              <param name="X" type="float"/>
+              <param name="Y" type="float"/>
+              <param name="Z" type="float"/>
+            </accessor>
+          </technique_common>
+        </source>
+        <source id="Mesh-mesh-normals">
+          <technique_common>
+            <accessor source="#Mesh-mesh-normals-array" count="10828" stride="3">
+              <param name="X" type="float"/>
+              <param name="Y" type="float"/>
+              <param name="Z" type="float"/>
+            </accessor>
+          </technique_common>
+        </source>
+        <source id="Mesh-mesh-map-0">
+          <technique_common>
+            <accessor source="#Mesh-mesh-map-0-array" count="64518" stride="2">
+              <param name="S" type="float"/>
+              <param name="T" type="float"/>
+            </accessor>
+          </technique_common>
+        </source>
+        <vertices id="Mesh-mesh-vertices">
+          <input semantic="POSITION" source="#Mesh-mesh-positions"/>
+        </vertices>
+        <triangles material="rp_nathan_animated_003_mat-material" count="21506">
+          <input semantic="VERTEX" source="#Mesh-mesh-vertices" offset="0"/>
+          <input semantic="NORMAL" source="#Mesh-mesh-normals" offset="1"/>
+          <input semantic="TEXCOORD" source="#Mesh-mesh-map-0" offset="2" set="0"/>
+        </triangles>
+      </mesh>
+    </geometry>
+  </library_geometries>
+  <library_controllers>
+    <controller id="Armature_rp_nathan_animated_003_walking_geo-skin" name="Armature">
+      <skin source="#Mesh-mesh">
+        <bind_shape_matrix>0.009105574 0 0 0 0 1.81252e-4 -0.00910377 0 0 0.00910377 1.81252e-4 0 0 0 0 1</bind_shape_matrix>
+        <source id="Armature_rp_nathan_animated_003_walking_geo-skin-joints">
+          <Name_array id="Armature_rp_nathan_animated_003_walking_geo-skin-joints-array" count="2">Bone Bone_001</Name_array>
+          <technique_common>
+            <accessor source="#Armature_rp_nathan_animated_003_walking_geo-skin-joints-array" count="2" stride="1">
+              <param name="JOINT" type="name"/>
+            </accessor>
+          </technique_common>
+        </source>
+        <source id="Armature_rp_nathan_animated_003_walking_geo-skin-bind_poses">
+          <float_array id="Armature_rp_nathan_animated_003_walking_geo-skin-bind_poses-array" count="32">0.3067021 0 0 0 0 0.005457222 0.3066536 0 0 -0.3066536 0.005457222 0 0 0 0 1 0.3066977 -8.19848e-5 -0.001660406 0.005417764 0.001661598 0.02478986 0.3056941 -0.9979939 5.24952e-5 -0.3056986 0.02478998 -0.06307965 0 0 0 1</float_array>
+          <technique_common>
+            <accessor source="#Armature_rp_nathan_animated_003_walking_geo-skin-bind_poses-array" count="2" stride="16">
+              <param name="TRANSFORM" type="float4x4"/>
+            </accessor>
+          </technique_common>
+        </source>
+        <source id="Armature_rp_nathan_animated_003_walking_geo-skin-weights">
+          <technique_common>
+            <accessor source="#Armature_rp_nathan_animated_003_walking_geo-skin-weights-array" count="12095" stride="1">
+              <param name="WEIGHT" type="float"/>
+            </accessor>
+          </technique_common>
+        </source>
+        <joints>
+          <input semantic="JOINT" source="#Armature_rp_nathan_animated_003_walking_geo-skin-joints"/>
+          <input semantic="INV_BIND_MATRIX" source="#Armature_rp_nathan_animated_003_walking_geo-skin-bind_poses"/>
+        </joints>
+        <vertex_weights count="10828">
+          <input semantic="JOINT" source="#Armature_rp_nathan_animated_003_walking_geo-skin-joints" offset="0"/>
+          <input semantic="WEIGHT" source="#Armature_rp_nathan_animated_003_walking_geo-skin-weights" offset="1"/>
+        </vertex_weights>
+      </skin>
+    </controller>
+  </library_controllers>
+  <library_animations>
+    <animation id="action_container-Armature" name="Armature">
+      <animation id="Armature_ArmatureAction_Bone_001_pose_matrix" name="Armature">
+        <source id="Armature_ArmatureAction_Bone_001_pose_matrix-input">
+          <float_array id="Armature_ArmatureAction_Bone_001_pose_matrix-input-array" count="10">0.0333333 0.06666666 0.1 0.1333333 0.1666666 0.2 0.2333333 0.2666667 0.3 0.3333333</float_array>
+          <technique_common>
+            <accessor source="#Armature_ArmatureAction_Bone_001_pose_matrix-input-array" count="10" stride="1">
+              <param name="TIME" type="float"/>
+            </accessor>
+          </technique_common>
+        </source>
+        <source id="Armature_ArmatureAction_Bone_001_pose_matrix-output">
+          <float_array id="Armature_ArmatureAction_Bone_001_pose_matrix-output-array" count="160">0.9999853 0.005417809 1.7116e-4 0 -0.005417816 0.9979938 0.06307966 1 1.70937e-4 -0.06307966 0.9980085 0 0 0 0 1 0.9999853 0.005417809 1.7116e-4 0 -0.005416852 0.999972 -0.005166583 1 -1.99147e-4 0.005165577 0.9999866 0 0 0 0 1 0.9999853 0.005417809 1.71161e-4 0 -0.005268259 0.9788442 -0.2045393 1 -0.001275694 0.2045353 0.9788584 0 0 0 0 1 0.9999853 0.00541781 1.7116e-4 0 -0.004548492 0.8558708 -0.5171699 1 -0.002948418 0.5171615 0.8558828 0 0 0 0 1 0.9999854 0.00541781 1.7116e-4 0 -0.002760034 0.5360984 -0.844151 1 -0.004665208 0.8441381 0.5361055 0 0 0 0 1 0.9999853 0.00541781 1.7116e-4 0 -1.01403e-4 0.05026838 -0.9987358 1 -0.005419565 0.9987211 0.05026819 0 0 0 0 1 0.9999853 0.00541781 1.71159e-4 0 0.002322191 -0.3996563 -0.9166622 1 -0.004897896 0.9166492 -0.399663 0 0 0 0 1 0.9999853 0.00541781 1.71159e-4 0 0.003813205 -0.6806739 -0.7325767 1 -0.003852458 0.7325666 -0.6806846 0 0 0 0 1 0.9999853 0.00541781 1.71159e-4 0 0.004505053 -0.8131257 -0.5820711 1 -0.003014377 0.5820634 -0.8131381 0 0 0 0 1 0.9999853 0.00541781 1.71159e-4 0 0.00470024 -0.8509477 -0.5252298 1 -0.002699948 0.5252229 -0.8509606 0 0 0 0 1</float_array>
+          <technique_common>
+            <accessor source="#Armature_ArmatureAction_Bone_001_pose_matrix-output-array" count="10" stride="16">
+              <param name="TRANSFORM" type="float4x4"/>
+            </accessor>
+          </technique_common>
+        </source>
+        <source id="Armature_ArmatureAction_Bone_001_pose_matrix-interpolation">
+          <Name_array id="Armature_ArmatureAction_Bone_001_pose_matrix-interpolation-array" count="10">LINEAR LINEAR LINEAR LINEAR LINEAR LINEAR LINEAR LINEAR LINEAR LINEAR</Name_array>
+          <technique_common>
+            <accessor source="#Armature_ArmatureAction_Bone_001_pose_matrix-interpolation-array" count="10" stride="1">
+              <param name="INTERPOLATION" type="name"/>
+            </accessor>
+          </technique_common>
+        </source>
+        <sampler id="Armature_ArmatureAction_Bone_001_pose_matrix-sampler">
+          <input semantic="INPUT" source="#Armature_ArmatureAction_Bone_001_pose_matrix-input"/>
+          <input semantic="OUTPUT" source="#Armature_ArmatureAction_Bone_001_pose_matrix-output"/>
+          <input semantic="INTERPOLATION" source="#Armature_ArmatureAction_Bone_001_pose_matrix-interpolation"/>
+        </sampler>
+        <channel source="#Armature_ArmatureAction_Bone_001_pose_matrix-sampler" target="Armature_Bone_001/transform"/>
+      </animation>
+    </animation>
+  </library_animations>
+  <library_visual_scenes>
+    <visual_scene id="Scene" name="Scene">
+      <node id="Armature" name="Armature" type="NODE">
+        <matrix sid="transform">3.260492 0 0 0 0 3.259976 0.05801513 0 0 -0.05801513 3.259976 0 0 0 0 1</matrix>
+        <node id="Armature_Bone" name="Bone" sid="Bone" type="JOINT">
+          <matrix sid="transform">1 0 0 0 0 0 -1 0 0 1 0 0 0 0 0 1</matrix>
+          <node id="Armature_Bone_001" name="Bone.001" sid="Bone_001" type="JOINT">
+            <matrix sid="transform">0.9999853 0.005417809 1.7116e-4 0 -0.005417816 0.9979938 0.06307966 1 1.70937e-4 -0.06307966 0.9980085 0 0 0 0 1</matrix>
+          </node>
+        </node>
+        <node id="rp_nathan_animated_003_walking_geo" name="rp_nathan_animated_003_walking_geo" type="NODE">
+          <matrix sid="transform">1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1</matrix>
+          <instance_controller url="#Armature_rp_nathan_animated_003_walking_geo-skin">
+            <skeleton>#Armature_Bone</skeleton>
+            <bind_material>
+              <technique_common>
+                <instance_material symbol="rp_nathan_animated_003_mat-material" target="#rp_nathan_animated_003_mat-material">
+                  <bind_vertex_input semantic="map1" input_semantic="TEXCOORD" input_set="0"/>
+                </instance_material>
+              </technique_common>
+            </bind_material>
+          </instance_controller>
+        </node>
+      </node>
+    </visual_scene>
+  </library_visual_scenes>
+  <scene>
+    <instance_visual_scene url="#Scene"/>
+  </scene>
+</COLLADA>

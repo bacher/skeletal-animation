@@ -17,6 +17,7 @@ import {
   compareTwoVec,
   rotationBetween,
 } from './utils';
+import { Mat4 } from '../../src/utils/m4';
 
 type TextNode = { _text: string };
 
@@ -98,7 +99,7 @@ function parseGeometry(data: ColladaGeometry): Geometry {
 type ColladaController = {
   controller: {
     skin: {
-      bind_shape_matrix: string;
+      bind_shape_matrix: TextNode;
       source: any[];
       joints: any;
       vertex_weights: { vcount: TextNode; v: TextNode };
@@ -107,6 +108,9 @@ type ColladaController = {
 };
 
 type ControllerData = {
+  controller: {
+    bindMatrix: Mat4;
+  };
   bones: Vec3[];
   weights: [number, number][][];
 };
@@ -116,6 +120,13 @@ function parseController({ controller }: ColladaController): ControllerData {
 
   const [jointsNode, joinsNode, weightsNode] = controller.skin.source;
   const { vcount, v } = controller.skin.vertex_weights;
+
+  const bindMatrix = mat4.fromValues(
+    ...(controller.skin.bind_shape_matrix._text
+      .split(/\s+/)
+      .map(parseFloat) as Mat4),
+  );
+  mat4.transpose(bindMatrix, bindMatrix);
 
   const transformData: number[] = joinsNode.float_array._text
     .split(/\s+/)
@@ -181,6 +192,9 @@ function parseController({ controller }: ColladaController): ControllerData {
   }
 
   return {
+    controller: {
+      bindMatrix: Array.from(bindMatrix) as Mat4,
+    },
     bones,
     weights,
   };

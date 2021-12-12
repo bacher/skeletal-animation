@@ -56,6 +56,9 @@ export type ModelDataV2 = {
   }[];
   bones: Vec3[];
   matrix: Mat4 | undefined;
+  controller: {
+    bindMatrix: Mat4;
+  };
   skeleton: Joint[] | undefined;
   boneIndexes: string[];
   animation: {
@@ -76,7 +79,7 @@ const modelControl = {
   rX: 0,
   rY: 0,
   rZ: 0,
-  scale: 3,
+  scale: 90,
 };
 
 const cameraControl = {
@@ -233,6 +236,7 @@ function createProgram(
 }
 
 function applyBones(
+  model: ModelDataV2,
   bones: Joint[],
   animationParts: AnimationPart[],
   buffers: [Float32Array, Float32Array],
@@ -243,6 +247,7 @@ function applyBones(
   parentPos: Vec3 = [0, 0, 0],
 ) {
   const [posBuffer, rotBuffer] = buffers;
+  const bindMat = mat4.fromValues(...model.controller.bindMatrix);
 
   for (const bone of bones) {
     const iniMat = mat4.fromValues(...bone.matrix);
@@ -352,6 +357,9 @@ function applyBones(
     // const newPos = Array.from(jointPos) as Vec3;
     // -- or --
     const newPosV = vec3.create();
+    // TODO:
+    // const bindMat2 = mat4.fromScaling(mat4.create(), [0.3, 0.3, 0.3]);
+    // const finBoneMat = mat4.mul(mat4.create(), bindMat2, resMat);
     vec3.transformMat4(newPosV, newPosV, resMat);
     const newPos = Array.from(newPosV) as Vec3;
 
@@ -372,6 +380,7 @@ function applyBones(
 
     if (bone.children) {
       applyBones(
+        model,
         bone.children,
         animationParts,
         buffers,
@@ -399,7 +408,7 @@ function generateBonesPositionBuffers(model: ModelDataV2) {
   const bonesOffsetsData = new Float32Array(model.bones.length * 3);
   const bonesOrientationData = new Float32Array(model.bones.length * 4);
 
-  applyBones(model.skeleton!, model.animation.parts, [
+  applyBones(model, model.skeleton!, model.animation.parts, [
     bonesOffsetsData,
     bonesOrientationData,
   ]);
@@ -793,6 +802,8 @@ function draw(
     modelControl.scale,
   );
 
+  const bindModelMatrix = m4.multiply(modelMatrix, model.controller.bindMatrix);
+
   let cameraMatrix = m4.identify();
   cameraMatrix = m4.xRotate(cameraMatrix, -0.5 * Math.PI);
   cameraMatrix = m4.translate(
@@ -815,7 +826,7 @@ function draw(
 
   gl.uniformMatrix4fv(main.uniforms.projection, false, projectionMatrix);
   gl.uniformMatrix4fv(main.uniforms.camera, false, cameraMatrix);
-  gl.uniformMatrix4fv(main.uniforms.model, false, modelMatrix);
+  gl.uniformMatrix4fv(main.uniforms.model, false, bindModelMatrix);
 
   const bonesBuffer = new Float32Array(model.bones.length * 3);
   for (let i = 0; i < model.bones.length; i++) {
