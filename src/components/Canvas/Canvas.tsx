@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { init, initGL } from './renderIndexed8';
+import { init, initGL } from './renderIndexed9';
 
 export function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
