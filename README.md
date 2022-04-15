@@ -1,4 +1,4 @@
-# WebGL 2 Essential
+# Skeletal animation
 
 WebGL 2 Experiments
 
